@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/domain"
 )
 
 // mutatingGitVerbs lists the git subcommands that can modify the repository.

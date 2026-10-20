@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Barceloch/Codixai/internal/cli"
+	"github.com/barceloch/codixai/internal/cli"
 )
 
 // ansiSequence detects an ANSI escape sequence in a text.

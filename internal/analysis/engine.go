@@ -18,10 +18,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/Barceloch/Codixai/internal/analysis/rules"
-	"github.com/Barceloch/Codixai/internal/application"
-	"github.com/Barceloch/Codixai/internal/domain"
-	"github.com/Barceloch/Codixai/internal/languages/registry"
+	"github.com/barceloch/codixai/internal/analysis/rules"
+	"github.com/barceloch/codixai/internal/application"
+	"github.com/barceloch/codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/languages/registry"
 )
 
 // ToolVersion is the version of the analyzer reported by the engine.

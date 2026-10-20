@@ -19,7 +19,7 @@ finished product.**
 
 What exists today:
 
-- a Go module named `github.com/Barceloch/Codixai` that builds a single binary;
+- a Go module named `github.com/barceloch/codixai` that builds a single binary;
 - a CLI with the commands `audit`, `init`, `version` and `help`;
 - a read-only Git integration with hardened invocation;
 - a configuration file loader for `.codixai.yml`;
@@ -39,14 +39,9 @@ What does **not** exist today:
 
 ### License
 
-**The license is PENDING maintainer confirmation.** The proposal is
-Apache-2.0. No license is granted by this repository until the maintainer
-confirms it and the `LICENSE` file is added. Do not assume any right to
-redistribute the code until that file exists.
-
-The maintainer was asked on 2026-10-20 and decided to keep the license
-pending, so the repository is currently **not distributable**. The decision
-is recorded in
+**The license is the MIT License.** It was confirmed by the maintainer on
+2026-10-20 and the text is in [`LICENSE`](LICENSE). The decision is recorded
+in
 [`docs/decisions/0004-module-path-repository-and-license.md`](docs/decisions/0004-module-path-repository-and-license.md).
 
 ## Why it exists
@@ -76,6 +71,11 @@ git clone https://github.com/Barceloch/Codixai.git
 cd Codixai
 go build ./cmd/codixai
 ```
+
+The module path is `github.com/barceloch/codixai`, in lower case. The Go
+toolchain matches the module path against the repository path in a case
+sensitive way, and GitHub serves the repository under both spellings, so the
+lower case path is the one that the toolchain resolves without surprises.
 
 This produces the `codixai` binary in the current directory. The version of
 the binary is injected at build time:

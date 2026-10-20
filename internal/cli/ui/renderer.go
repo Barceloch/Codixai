@@ -27,7 +27,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/domain"
 )
 
 // The ANSI escape sequences used by the renderer.

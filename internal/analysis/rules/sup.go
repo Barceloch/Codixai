@@ -3,8 +3,8 @@ package rules
 import (
 	"fmt"
 
-	"github.com/Barceloch/Codixai/internal/domain"
-	"github.com/Barceloch/Codixai/internal/languages/lexical"
+	"github.com/barceloch/codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/languages/lexical"
 )
 
 // checkSuppressions implements the rule CDX-SUP-001.

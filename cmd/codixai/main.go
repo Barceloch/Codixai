@@ -14,7 +14,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/Barceloch/Codixai/internal/cli"
+	"github.com/barceloch/codixai/internal/cli"
 )
 
 // version is the version of the tool.

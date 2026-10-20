@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Barceloch/Codixai/internal/domain"
-	"github.com/Barceloch/Codixai/internal/languages/lexical"
+	"github.com/barceloch/codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/languages/lexical"
 )
 
 // View is the diff oriented view of one changed file.

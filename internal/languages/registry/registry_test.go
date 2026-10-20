@@ -3,8 +3,8 @@ package registry_test
 import (
 	"testing"
 
-	"github.com/Barceloch/Codixai/internal/domain"
-	"github.com/Barceloch/Codixai/internal/languages/registry"
+	"github.com/barceloch/codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/languages/registry"
 )
 
 // TestDetect checks the detection of the language of a file.

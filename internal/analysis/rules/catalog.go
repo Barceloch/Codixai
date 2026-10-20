@@ -11,7 +11,7 @@
 package rules
 
 import (
-	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/domain"
 )
 
 // Rule identifiers of the catalog.

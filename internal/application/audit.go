@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Barceloch/Codixai/internal/domain"
-	"github.com/Barceloch/Codixai/internal/policies"
+	"github.com/barceloch/codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/policies"
 )
 
 // AuditRequest describes the audit to run.

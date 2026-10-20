@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/domain"
 )
 
 // maxDiffLineSize bounds the size of a single line of a diff. A line longer

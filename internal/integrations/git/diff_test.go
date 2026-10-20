@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/domain"
 )
 
 func TestParseUnifiedDiffModifiedFile(t *testing.T) {

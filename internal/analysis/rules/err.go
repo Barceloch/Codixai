@@ -1,13 +1,13 @@
 package rules
 
 import (
-	"github.com/Barceloch/Codixai/internal/domain"
-	golang "github.com/Barceloch/Codixai/internal/languages/go"
-	"github.com/Barceloch/Codixai/internal/languages/javascript"
-	"github.com/Barceloch/Codixai/internal/languages/lexical"
-	"github.com/Barceloch/Codixai/internal/languages/php"
-	"github.com/Barceloch/Codixai/internal/languages/python"
-	"github.com/Barceloch/Codixai/internal/languages/typescript"
+	"github.com/barceloch/codixai/internal/domain"
+	golang "github.com/barceloch/codixai/internal/languages/go"
+	"github.com/barceloch/codixai/internal/languages/javascript"
+	"github.com/barceloch/codixai/internal/languages/lexical"
+	"github.com/barceloch/codixai/internal/languages/php"
+	"github.com/barceloch/codixai/internal/languages/python"
+	"github.com/barceloch/codixai/internal/languages/typescript"
 )
 
 // checkErrors implements the rule CDX-ERR-001.

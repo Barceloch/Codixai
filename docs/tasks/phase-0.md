@@ -23,10 +23,10 @@ Creating empty directories is not enough.
 | P0-09 | Continuous integration | PARTIAL |
 | P0-10 | Agent context package | DONE |
 
-Two items are not fully closed and are stated as such: the parsing strategy
-ADR is **blocked** (P0-11 below) and the license is **pending maintainer
-confirmation** (P0-12 below). The module path and the repository URL were
-confirmed by the maintainer on 2026-10-20 and applied.
+One item is not fully closed and is stated as such: the parsing strategy
+ADR is **blocked** (P0-11 below). The module path, the repository URL and
+the license (the MIT License) were confirmed by the maintainer on 2026-10-20
+and applied.
 
 ---
 
@@ -423,10 +423,9 @@ required evidence.
 
 ---
 
-### P0-12 — Module path, repository URL and license (partially done)
+### P0-12 — Module path, repository URL and license (done)
 
-- Status: **PARTIAL** — the module path and the repository URL are confirmed
-  and applied; the license is still pending
+- Status: **DONE**
 - Depends on: none
 
 **Objective**
@@ -437,16 +436,16 @@ license (Apache-2.0 is the proposal) and apply the checklist of
 **Acceptance checks**
 
 ```bash
-grep '^module ' go.mod                          # module github.com/Barceloch/Codixai
+grep '^module ' go.mod                           # module github.com/barceloch/codixai
 grep -rn '"codixai/internal' --include='*.go' . # no result
-grep -n 'github.com/Barceloch/Codixai' README.md CONTRIBUTING.md SECURITY.md
+grep -n 'github.com/barceloch/codixai' README.md CONTRIBUTING.md
+test -f LICENSE                                  # the MIT License
 go build ./... && go vet ./... && go test ./...
 ```
 
-The license half of the task is still open: it needs a decision of the
-maintainer, and the agent must stop and ask. The maintainer was asked on
-2026-10-20 and decided to keep the license pending, so no `LICENSE` file
-exists and the repository is not distributable.
+The maintainer confirmed the module path, the repository URL and the license
+(MIT) on 2026-10-20. The security contact **address** is still pending and
+belongs to the same decision list.
 
 **Out of scope**
 Publishing a release.

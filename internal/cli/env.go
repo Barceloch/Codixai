@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Barceloch/Codixai/internal/cli/ui"
-	"github.com/Barceloch/Codixai/internal/policies"
+	"github.com/barceloch/codixai/internal/cli/ui"
+	"github.com/barceloch/codixai/internal/policies"
 )
 
 // Version is the version of the tool.

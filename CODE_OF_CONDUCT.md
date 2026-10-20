@@ -89,3 +89,7 @@ here: it is reproduced from the canonical source by the maintainer before the
 first public release, and until then the canonical page linked above is the
 authoritative version. This repository does not publish a modified or
 original variant of the covenant.
+
+The license of the project is the MIT License, in [`LICENSE`](LICENSE). The
+copyright holder of that license is the maintainer of the repository, who is
+also the enforcement contact of this Code of Conduct.

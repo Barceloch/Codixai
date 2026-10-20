@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Barceloch/Codixai/internal/domain"
-	"github.com/Barceloch/Codixai/internal/languages/go"
-	"github.com/Barceloch/Codixai/internal/languages/javascript"
-	"github.com/Barceloch/Codixai/internal/languages/lexical"
-	"github.com/Barceloch/Codixai/internal/languages/php"
-	"github.com/Barceloch/Codixai/internal/languages/python"
-	"github.com/Barceloch/Codixai/internal/languages/typescript"
+	"github.com/barceloch/codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/languages/go"
+	"github.com/barceloch/codixai/internal/languages/javascript"
+	"github.com/barceloch/codixai/internal/languages/lexical"
+	"github.com/barceloch/codixai/internal/languages/php"
+	"github.com/barceloch/codixai/internal/languages/python"
+	"github.com/barceloch/codixai/internal/languages/typescript"
 )
 
 // importDecision is the result of the classification of one import.
