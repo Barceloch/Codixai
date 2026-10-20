@@ -8,9 +8,9 @@ package typescript
 import (
 	"regexp"
 
-	"codixai/internal/domain"
-	"codixai/internal/languages/javascript"
-	"codixai/internal/languages/lexical"
+	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/languages/javascript"
+	"github.com/Barceloch/Codixai/internal/languages/lexical"
 )
 
 // Profile returns the lexical profile and the syntactic markers of

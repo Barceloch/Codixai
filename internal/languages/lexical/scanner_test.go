@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"testing"
 
-	"codixai/internal/languages/lexical"
-	"codixai/internal/languages/python"
+	"github.com/Barceloch/Codixai/internal/languages/lexical"
+	"github.com/Barceloch/Codixai/internal/languages/python"
 )
 
 // segmentsOf returns the segments of a line.

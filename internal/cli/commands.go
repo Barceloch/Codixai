@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"codixai/internal/analysis"
-	"codixai/internal/application"
-	"codixai/internal/domain"
-	"codixai/internal/integrations/git"
-	"codixai/internal/languages/registry"
-	"codixai/internal/policies"
+	"github.com/Barceloch/Codixai/internal/analysis"
+	"github.com/Barceloch/Codixai/internal/application"
+	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/integrations/git"
+	"github.com/Barceloch/Codixai/internal/languages/registry"
+	"github.com/Barceloch/Codixai/internal/policies"
 )
 
 // NewRootCommand builds the command tree of the CLI.

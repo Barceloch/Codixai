@@ -8,15 +8,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"codixai/internal/cli/ui"
-	"codixai/internal/policies"
+	"github.com/Barceloch/Codixai/internal/cli/ui"
+	"github.com/Barceloch/Codixai/internal/policies"
 )
 
 // Version is the version of the tool.
 //
 // The value is injected at build time with the linker flag
-// "-X codixai/internal/cli.Version=<version>". It stays "dev" when the
-// binary is built without it.
+// "-X main.version=<version>". It stays "dev" when the binary is built
+// without it.
 var Version = "dev"
 
 // Env holds the environment of one run of the CLI.

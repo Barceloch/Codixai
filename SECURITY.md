@@ -119,13 +119,16 @@ reach the process table.
 ## Reporting a vulnerability
 
 **The reporting channel is the private security advisory of the GitHub
-repository, once its URL is confirmed. The contact address is PENDING
-maintainer confirmation. No email address is published here yet, because
-none has been confirmed.**
+repository: <https://github.com/Barceloch/Codixai/security/advisories/new>. The
+contact address is PENDING maintainer confirmation. No email address is
+published here yet, because none has been confirmed.**
 
-Until the channel is confirmed, open a regular issue that describes the
-problem at a high level, without a working exploit, and ask the maintainer
-for the private channel.
+Until a contact address is confirmed, open the private advisory above. Do
+not open a regular issue for a vulnerability: a public issue is visible to
+everyone, and the report of a vulnerability is not public by nature. If the
+private channel is unavailable, describe the problem at a high level in a
+regular issue, without a working exploit, and ask the maintainer for the
+private channel.
 
 ### What to include
 

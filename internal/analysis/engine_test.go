@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"codixai/internal/analysis"
-	"codixai/internal/domain"
-	"codixai/internal/integrations/git"
+	"github.com/Barceloch/Codixai/internal/analysis"
+	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/integrations/git"
 )
 
 // expectedCase is the expected result of a fixture of the corpus.

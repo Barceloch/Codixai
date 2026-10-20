@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"codixai/internal/domain"
-	"codixai/internal/policies"
+	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/policies"
 )
 
 // fakeSource is a change source that always returns the same change set.

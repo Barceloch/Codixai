@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"codixai/internal/languages/lexical"
-	"codixai/internal/languages/php"
+	"github.com/Barceloch/Codixai/internal/languages/lexical"
+	"github.com/Barceloch/Codixai/internal/languages/php"
 )
 
 // TestReadManifest checks the reader of the composer.json file.

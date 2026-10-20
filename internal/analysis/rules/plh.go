@@ -3,8 +3,8 @@ package rules
 import (
 	"fmt"
 
-	"codixai/internal/domain"
-	"codixai/internal/languages/lexical"
+	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/languages/lexical"
 )
 
 // checkPlaceholders implements the rule CDX-PLH-001.

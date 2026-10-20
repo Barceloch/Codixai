@@ -19,7 +19,7 @@ finished product.**
 
 What exists today:
 
-- a Go module named `codixai` that builds a single binary;
+- a Go module named `github.com/Barceloch/Codixai` that builds a single binary;
 - a CLI with the commands `audit`, `init`, `version` and `help`;
 - a read-only Git integration with hardened invocation;
 - a configuration file loader for `.codixai.yml`;
@@ -72,13 +72,20 @@ the Go standard library. A clone builds without network access.
 Requirements: Go 1.27 or later (the module declares `go 1.27.0`).
 
 ```bash
-git clone <repository-url> codixai   # the URL is PENDING maintainer confirmation
-cd codixai
+git clone https://github.com/Barceloch/Codixai.git
+cd Codixai
 go build ./cmd/codixai
 ```
 
-This produces the `codixai` binary in the current directory. You can also run
-it without building:
+This produces the `codixai` binary in the current directory. The version of
+the binary is injected at build time:
+
+```bash
+go build -ldflags "-X main.version=0.1.0" ./cmd/codixai
+```
+
+Without the flag, the binary reports `dev`. You can also run it without
+building:
 
 ```bash
 go run ./cmd/codixai --help
@@ -302,8 +309,8 @@ managers, it does not access the network, and it neutralizes the executable
 configuration a repository can define for Git.
 
 The private security advisory of the GitHub repository is the reporting
-channel. The repository URL and the contact address are **PENDING maintainer
-confirmation**.
+channel: <https://github.com/Barceloch/Codixai/security/advisories/new>. The
+contact address is **PENDING maintainer confirmation**.
 
 ## Changelog
 

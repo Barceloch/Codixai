@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"codixai/internal/languages/javascript"
-	"codixai/internal/languages/lexical"
+	"github.com/Barceloch/Codixai/internal/languages/javascript"
+	"github.com/Barceloch/Codixai/internal/languages/lexical"
 )
 
 // TestReadManifest checks the reader of the package.json file.

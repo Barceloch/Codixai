@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"codixai/internal/application"
-	"codixai/internal/cli/ui"
-	"codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/application"
+	"github.com/Barceloch/Codixai/internal/cli/ui"
+	"github.com/Barceloch/Codixai/internal/domain"
 )
 
 // writeAuditReport writes the human readable report of an audit.

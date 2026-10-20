@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"codixai/internal/analysis"
-	"codixai/internal/domain"
-	"codixai/internal/integrations/git"
+	"github.com/Barceloch/Codixai/internal/analysis"
+	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/integrations/git"
 )
 
 // TestRunIsSerializable checks that the run can be exported as JSON and that

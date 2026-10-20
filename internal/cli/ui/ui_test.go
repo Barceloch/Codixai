@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/domain"
 )
 
 // ansiSequence detects an ANSI escape sequence in a text.

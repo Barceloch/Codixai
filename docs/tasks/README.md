@@ -87,9 +87,9 @@ The rules:
 
 The agent **stops and asks** instead of choosing, when:
 
-1. The task depends on a pending decision: the URL of the repository, the
-   license, the security contact, the supported platforms, the minimum Go
-   version, the CI platform, the report formats.
+1. The task depends on a pending decision: the license, the security
+   contact, the supported platforms, the minimum Go version, the CI
+   platform, the report formats.
 2. The specification or the task is ambiguous, or two of them contradict
    each other. The precedence is: the design principles (sections 1.2 and
    4), then the text of the current phase (section 14), then the examples.

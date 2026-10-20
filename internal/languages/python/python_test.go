@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"codixai/internal/languages/lexical"
-	"codixai/internal/languages/python"
+	"github.com/Barceloch/Codixai/internal/languages/lexical"
+	"github.com/Barceloch/Codixai/internal/languages/python"
 )
 
 // TestReadRequirements checks the reader of the requirements.txt file.

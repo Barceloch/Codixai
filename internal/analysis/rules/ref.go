@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"codixai/internal/domain"
-	"codixai/internal/languages/go"
+	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/languages/go"
 )
 
 // checkReferences implements the rule CDX-REF-001.

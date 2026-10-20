@@ -26,9 +26,9 @@ If `$ARGUMENTS` is empty, ask which task has to be executed and stop.
 ## Stop conditions
 
 Stop and ask, instead of choosing, when the task depends on a pending
-decision (the repository URL, the license, the security contact, the
-supported platforms, the minimum Go version, the CI platform, the report
-formats), when the specification and the task contradict each other, when a
+decision (the license, the security contact, the supported platforms, the
+minimum Go version, the CI platform, the report formats), when the
+specification and the task contradict each other, when a
 new dependency or an access to the network would be needed, when the change
 would modify `schema_version` or another fixed contract, or when something
 cannot be verified in this environment.

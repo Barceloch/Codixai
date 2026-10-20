@@ -3,8 +3,8 @@ package rules_test
 import (
 	"testing"
 
-	"codixai/internal/analysis/rules"
-	"codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/analysis/rules"
+	"github.com/Barceloch/Codixai/internal/domain"
 )
 
 // TestCatalogPublishesTheSupportMatrix checks the matrix of the catalog.

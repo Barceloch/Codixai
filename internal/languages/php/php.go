@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"codixai/internal/domain"
-	"codixai/internal/languages/lexical"
+	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/languages/lexical"
 )
 
 // Profile returns the lexical profile and the syntactic markers of PHP.

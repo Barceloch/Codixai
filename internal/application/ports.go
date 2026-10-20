@@ -7,7 +7,7 @@ package application
 import (
 	"context"
 
-	"codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/domain"
 )
 
 // DiffAnalyzer is the port implemented by the analysis engine.

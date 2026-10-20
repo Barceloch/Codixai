@@ -3,9 +3,9 @@ package typescript_test
 import (
 	"testing"
 
-	"codixai/internal/domain"
-	"codixai/internal/languages/lexical"
-	"codixai/internal/languages/typescript"
+	"github.com/Barceloch/Codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/languages/lexical"
+	"github.com/Barceloch/Codixai/internal/languages/typescript"
 )
 
 // TestProfile checks the TypeScript profile.

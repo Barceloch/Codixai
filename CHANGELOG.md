@@ -14,7 +14,7 @@ branch.
 
 ### Added
 
-- **Module and CLI.** A Go module named `codixai` that declares `go 1.27.0`
+- **Module and CLI.** A Go module named `github.com/Barceloch/Codixai` that declares `go 1.27.0`
   and uses only the Go standard library, with no third-party dependency. The
   binary is built with `go build ./cmd/codixai`.
 - **Command framework and command tree** in `internal/cli`: the commands
@@ -97,8 +97,9 @@ branch.
   Windows builds are defined in CI but their results have not been observed.
 - No release has been published: there is no tag, no packaged binary and no
   measured performance or precision figure.
-- The module path, the repository URL, the license and the security contact
-  are pending maintainer confirmation.
+- The license and the security contact address are pending maintainer
+  confirmation. The repository URL and the module path are confirmed:
+  `https://github.com/Barceloch/Codixai`.
 
 ## [0.1.0 - Unreleased]
 

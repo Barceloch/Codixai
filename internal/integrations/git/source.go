@@ -29,8 +29,8 @@ import (
 	"strconv"
 	"strings"
 
-	"codixai/internal/application"
-	"codixai/internal/domain"
+	"github.com/Barceloch/Codixai/internal/application"
+	"github.com/Barceloch/Codixai/internal/domain"
 )
 
 // Source implements the application.ChangeSource port on top of the git

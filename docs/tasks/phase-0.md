@@ -24,8 +24,9 @@ Creating empty directories is not enough.
 | P0-10 | Agent context package | DONE |
 
 Two items are not fully closed and are stated as such: the parsing strategy
-ADR is **blocked** (P0-11 below) and the module path, the repository URL and
-the license are **pending maintainer confirmation**.
+ADR is **blocked** (P0-11 below) and the license is **pending maintainer
+confirmation** (P0-12 below). The module path and the repository URL were
+confirmed by the maintainer on 2026-10-20 and applied.
 
 ---
 
@@ -422,9 +423,10 @@ required evidence.
 
 ---
 
-### P0-12 — Module path, repository URL and license (pending)
+### P0-12 — Module path, repository URL and license (partially done)
 
-- Status: **PENDING** — requires the maintainer
+- Status: **PARTIAL** — the module path and the repository URL are confirmed
+  and applied; the license is still pending
 - Depends on: none
 
 **Objective**
@@ -433,8 +435,18 @@ license (Apache-2.0 is the proposal) and apply the checklist of
 [`docs/decisions/0004-module-path-repository-and-license.md`](../decisions/0004-module-path-repository-and-license.md).
 
 **Acceptance checks**
-Not executable by an agent: it needs a decision of the maintainer. The
-agent must stop and ask.
+
+```bash
+grep '^module ' go.mod                          # module github.com/Barceloch/Codixai
+grep -rn '"codixai/internal' --include='*.go' . # no result
+grep -n 'github.com/Barceloch/Codixai' README.md CONTRIBUTING.md SECURITY.md
+go build ./... && go vet ./... && go test ./...
+```
+
+The license half of the task is still open: it needs a decision of the
+maintainer, and the agent must stop and ask. The maintainer was asked on
+2026-10-20 and decided to keep the license pending, so no `LICENSE` file
+exists and the repository is not distributable.
 
 **Out of scope**
 Publishing a release.

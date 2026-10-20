@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"codixai/internal/languages/lexical"
+	"github.com/Barceloch/Codixai/internal/languages/lexical"
 )
 
 // emptyErrorCheckRe matches the header of an error check.

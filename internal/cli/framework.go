@@ -24,7 +24,7 @@ import (
 	"sort"
 	"strings"
 
-	"codixai/internal/cli/ui"
+	"github.com/Barceloch/Codixai/internal/cli/ui"
 )
 
 // The exit codes of the CLI. They are part of the contract of the tool.

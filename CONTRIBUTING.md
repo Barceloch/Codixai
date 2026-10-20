@@ -10,10 +10,12 @@ Codixai is an experimental project at the Phase 0 / Phase 1 milestone. The
 honest summary is in the [README](README.md#status). Two facts matter for a
 contributor:
 
-- The module is `codixai` and the program uses **only the Go standard
-  library**. There is no `go.sum` and no third-party dependency.
-- The module path, the repository URL and the license are **pending maintainer
-  confirmation**. Do not change them on your own: see
+- The module is `github.com/Barceloch/Codixai` and the program uses **only
+  the Go standard library**. There is no `go.sum` and no third-party
+  dependency.
+- The repository URL is **confirmed**: `https://github.com/Barceloch/Codixai`.
+  The license is **pending maintainer confirmation**. Do not change either on
+  your own: see
   [`docs/decisions/0004-module-path-repository-and-license.md`](docs/decisions/0004-module-path-repository-and-license.md).
 
 ## Development setup
@@ -27,8 +29,8 @@ No network access is needed today. The build environment has none, and the
 project was written to work in that condition.
 
 ```bash
-git clone <repository-url> codixai
-cd codixai
+git clone https://github.com/Barceloch/Codixai.git
+cd Codixai
 go build ./...
 go test ./...
 ```

@@ -58,9 +58,9 @@ Codixai. The conventions are in
 
 Stop and ask, instead of choosing, when:
 
-1. The task depends on a pending decision: the repository URL, the
-   license, the security contact, the platforms, the minimum Go version, the
-   CI platform, the report formats.
+1. The task depends on a pending decision: the license, the security
+   contact, the platforms, the minimum Go version, the CI platform, the
+   report formats.
 2. The specification or the task is ambiguous, or two of them contradict
    each other. The precedence is: sections 1.2 and 4, then the text of the
    current phase, then the examples.
