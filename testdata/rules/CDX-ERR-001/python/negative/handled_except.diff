@@ -1,0 +1,11 @@
+diff --git a/app/main.py b/app/main.py
+index 1111111..2222222 100644
+--- a/app/main.py
++++ b/app/main.py
+@@ -1,4 +1,6 @@
+ def run():
+     try:
+         do_work()
++    except ValueError:
++        raise
+     return True

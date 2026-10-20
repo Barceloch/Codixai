@@ -1,0 +1,12 @@
+diff --git a/tests/ServiceTest.php b/tests/ServiceTest.php
+index 1111111..2222222 100644
+--- a/tests/ServiceTest.php
++++ b/tests/ServiceTest.php
+@@ -1,5 +1,8 @@
+ <?php
+ 
+ class ServiceTest extends TestCase {
++    public function testAdd(): void {
++        $this->assertSame(2, 1 + 1);
++    }
+ }

@@ -1,0 +1,16 @@
+diff --git a/src/Service.php b/src/Service.php
+index 1111111..2222222 100644
+--- a/src/Service.php
++++ b/src/Service.php
+@@ -1,8 +1,10 @@
+ <?php
+ 
+ class Service {
+     public function run(): void {
+         try {
+             doWork();
+         }
++        catch (\Throwable $e) {
++        }
+     }
+ }

@@ -1,0 +1,10 @@
+diff --git a/internal/payment/service_test.go b/internal/payment/service_test.go
+deleted file mode 100644
+index 1111111..0000000
+--- a/internal/payment/service_test.go
++++ /dev/null
+@@ -1,4 +0,0 @@
+ package payment
+-
+-func TestService(t *testing.T) {
+-}

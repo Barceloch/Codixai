@@ -1,0 +1,11 @@
+diff --git a/src/Service.php b/src/Service.php
+index 1111111..2222222 100644
+--- a/src/Service.php
++++ b/src/Service.php
+@@ -1,4 +1,5 @@
+ <?php
+ 
+ class Service {
++    // the service is stateless
+     public function run(): void {}
+ }

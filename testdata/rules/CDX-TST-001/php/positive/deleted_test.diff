@@ -1,0 +1,10 @@
+diff --git a/tests/ServiceTest.php b/tests/ServiceTest.php
+deleted file mode 100644
+index 1111111..0000000
+--- a/tests/ServiceTest.php
++++ /dev/null
+@@ -1,4 +0,0 @@
+ <?php
+ 
+ class ServiceTest extends TestCase {
+ }

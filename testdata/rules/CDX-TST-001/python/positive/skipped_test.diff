@@ -1,0 +1,10 @@
+diff --git a/tests/test_service.py b/tests/test_service.py
+index 1111111..2222222 100644
+--- a/tests/test_service.py
++++ b/tests/test_service.py
+@@ -1,4 +1,6 @@
+ import pytest
+ 
++@pytest.mark.skip(reason="pending")
+ def test_service():
+     assert True

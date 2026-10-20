@@ -1,0 +1,12 @@
+diff --git a/internal/app/service.go b/internal/app/service.go
+index 1111111..2222222 100644
+--- a/internal/app/service.go
++++ b/internal/app/service.go
+@@ -1,5 +1,6 @@
+ package service
+ 
+ func Run() error {
++	// the error is reported by the caller
+ 	doWork()
+ 	return nil
+ }

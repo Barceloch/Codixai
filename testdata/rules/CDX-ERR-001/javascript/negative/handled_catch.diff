@@ -1,0 +1,13 @@
+diff --git a/src/index.js b/src/index.js
+index 1111111..2222222 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -1,5 +1,7 @@
+ function run() {
+   try {
+     doWork();
++  } catch (error) {
++    report(error);
++  }
+   return true;
+ }
