@@ -1,0 +1,17 @@
+# Build output
+/codixai
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# Local index and cache
+.codixai/
+/tmp/
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
