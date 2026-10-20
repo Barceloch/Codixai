@@ -30,8 +30,25 @@ const (
 	IDPlaceholders = "CDX-PLH-001"
 )
 
-// RuleVersion is the version of every rule of this milestone.
+// RuleVersion is the version of the rules of this milestone.
+//
+// A rule that changes its behavior increments its own version, so a
+// consumer can tell the two behaviors apart.
 const RuleVersion = "1"
+
+// RuleVersionReferences is the version of CDX-REF-001.
+//
+// Version 2 resolves the predeclared identifiers of the language and the
+// name of the packages of the module, so a reference to one of them is no
+// longer reported as a missing symbol.
+const RuleVersionReferences = "2"
+
+// RuleVersionPlaceholders is the version of CDX-PLH-001.
+//
+// Version 2 scopes the explicit markers to the comments, to the code and
+// to the thrown errors, so a description that names a marker is no longer
+// reported as a placeholder.
+const RuleVersionPlaceholders = "2"
 
 // Definition describes a deterministic rule.
 type Definition struct {
@@ -106,7 +123,7 @@ var catalog = []Definition{
 	},
 	{
 		ID:           IDReferences,
-		Version:      RuleVersion,
+		Version:      RuleVersionReferences,
 		Area:         "REF",
 		Description:  "A local symbol referenced by a changed Go file does not exist in the package directory of the file.",
 		Severity:     domain.SeverityError,
@@ -123,7 +140,8 @@ var catalog = []Definition{
 			domain.LangGo: {
 				"The scope of the analysis is the package directory of the changed file, not the whole module.",
 				"Only the references that the change introduces are reported.",
-				"A symbol declared in another package of the module is not resolved, so an import that does not follow the conventions of the language may be reported.",
+				"A symbol declared in another package of the module is not resolved, so it is reported as a missing symbol.",
+				"The predeclared identifiers of the language and the packages of the module are resolved.",
 			},
 		},
 		Check: checkReferences,
@@ -244,7 +262,7 @@ var catalog = []Definition{
 	},
 	{
 		ID:           IDPlaceholders,
-		Version:      RuleVersion,
+		Version:      RuleVersionPlaceholders,
 		Area:         "PLH",
 		Description:  "The change adds an obvious placeholder or stub.",
 		Severity:     domain.SeverityWarning,
@@ -260,18 +278,23 @@ var catalog = []Definition{
 		Limitations: map[string][]string{
 			domain.LangGo: {
 				"A placeholder marker is a signal and not a defect; the marker may describe a legitimate pending task.",
+				"The explicit markers are matched in the comments, in the code and in the thrown errors; a plain string that names a marker is not a placeholder.",
 			},
 			domain.LangPython: {
 				"A placeholder marker is a signal and not a defect; the marker may describe a legitimate pending task.",
+				"The explicit markers are matched in the comments, in the code and in the thrown errors; a plain string that names a marker is not a placeholder.",
 			},
 			domain.LangPHP: {
 				"A placeholder marker is a signal and not a defect; the marker may describe a legitimate pending task.",
+				"The explicit markers are matched in the comments, in the code and in the thrown errors; a plain string that names a marker is not a placeholder.",
 			},
 			domain.LangJavaScript: {
 				"A placeholder marker is a signal and not a defect; the marker may describe a legitimate pending task.",
+				"The explicit markers are matched in the comments, in the code and in the thrown errors; a plain string that names a marker is not a placeholder.",
 			},
 			domain.LangTypeScript: {
 				"A placeholder marker is a signal and not a defect; the marker may describe a legitimate pending task.",
+				"The explicit markers are matched in the comments, in the code and in the thrown errors; a plain string that names a marker is not a placeholder.",
 			},
 		},
 		Check: checkPlaceholders,

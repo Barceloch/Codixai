@@ -323,8 +323,8 @@ func TestRuleCatalogIsStable(t *testing.T) {
 		if rule.Severity != severity {
 			t.Errorf("the severity of %s is %q, want %q", rule.ID, rule.Severity, severity)
 		}
-		if rule.Version != "1" {
-			t.Errorf("the version of %s is %q, want \"1\"", rule.ID, rule.Version)
+		if rule.Version == "" {
+			t.Errorf("the rule %s does not publish a version", rule.ID)
 		}
 		if rule.Method == "" {
 			t.Errorf("the rule %s does not publish a method", rule.ID)

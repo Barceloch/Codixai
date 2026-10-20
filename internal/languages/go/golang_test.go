@@ -129,7 +129,7 @@ func main() {
 	missingHelper()
 }
 `
-	references, complete, err := golang.FindUndefinedReferences("main.go", []byte(source), nil)
+	references, complete, err := golang.FindUndefinedReferences("main.go", []byte(source), nil, nil)
 	if err != nil {
 		t.Fatalf("the analysis returned an error: %v", err)
 	}
@@ -159,7 +159,49 @@ func main() {
 }
 `
 	siblings := []golang.SiblingFile{{Name: "other.go", Src: []byte("package main\n\nfunc other() {\n}\n")}}
-	references, complete, err := golang.FindUndefinedReferences("main.go", []byte(source), siblings)
+	references, complete, err := golang.FindUndefinedReferences("main.go", []byte(source), siblings, nil)
+	if err != nil {
+		t.Fatalf("the analysis returned an error: %v", err)
+	}
+	if !complete {
+		t.Fatal("the analysis is not complete")
+	}
+	if len(references) != 0 {
+		t.Errorf("the references are %+v, want none", references)
+	}
+}
+
+// TestFindUndefinedReferencesHandlesControlFlow checks that the analyzer
+// does not crash on the control flow statements whose label is optional.
+//
+// A break or a continue without a label has no identifier, and a function
+// declaration without a body has no block. Both are valid Go, and both
+// used to reach a nil identifier.
+func TestFindUndefinedReferencesHandlesControlFlow(t *testing.T) {
+	source := `package main
+
+func declared() {
+}
+
+func withoutBody()
+
+func main() {
+	for i := 0; i < 3; i++ {
+		if i == 1 {
+			break
+		}
+		continue
+	}
+outer:
+	for i := 0; i < 3; i++ {
+		if i == 1 {
+			break outer
+		}
+	}
+	declared()
+}
+`
+	references, complete, err := golang.FindUndefinedReferences("main.go", []byte(source), nil, nil)
 	if err != nil {
 		t.Fatalf("the analysis returned an error: %v", err)
 	}

@@ -78,8 +78,12 @@ branch.
 - The analysis is syntactic and non-semantic. No rule is declared
   `resolved`, and no relation is resolved across packages or modules.
 - `CDX-REF-001` reports identifiers that are declared in another package of
-  the module, and built-in identifiers, as missing local symbols. It is a
-  signal, not a confirmed defect.
+  the module as missing local symbols. It is a signal, not a confirmed
+  defect. The predeclared identifiers of the language and the packages of
+  the module are resolved since the version 2 of the rule.
+- `CDX-TST-001` reports a test that is skipped at run time, including the
+  conditional skips that skip a test when a tool is missing. It is a signal,
+  not a confirmed defect.
 - The manifests are read with reduced parsers and only the root of the
   repository is considered. Workspace modules and vendored dependencies are
   not resolved.

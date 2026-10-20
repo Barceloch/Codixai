@@ -308,3 +308,37 @@ and validated, but no baseline file is read and none is written.
 The storage of the baseline in the SQLite index: the baseline is a versioned
 file of the analyzed repository, and the index is a local, rebuildable
 cache.
+
+---
+
+## The self check of the milestone
+
+The milestone was audited with the tool itself, over the whole branch:
+
+```bash
+codixai audit --diff --base <first commit of the milestone>
+```
+
+The run reports 6 findings over 221 changed files. Every one of them is
+explained, and none of them is a defect of the milestone:
+
+| Rule | Findings | What they are |
+| ---- | -------- | ------------- |
+| `CDX-IMP-001` | 2 | The intentional fixture of the rule, whose import is not declared by design. |
+| `CDX-REF-001` | 1 | The intentional positive fixture of the rule, which references a missing symbol by design. |
+| `CDX-TST-001` | 3 | `t.Skip("git is not available in this environment")`, a conditional skip in the integration tests. |
+
+The last group is a **suspected false positive of the heuristic**: a test
+that is skipped when a tool is missing is a legitimate practice, and the
+rule cannot tell it apart from a test that is disabled on purpose. The
+finding is reported here with its evidence, and it is not suppressed.
+
+The first run of the self check also found three real defects, which are
+fixed and covered by fixtures:
+
+| Defect | Fix | Rule version |
+| ------ | --- | ------------ |
+| The tool crashed on a `break` or a `continue` without a label, because the label of the statement is absent. | The nil identifiers of the Go analysis are handled. | — |
+| The predeclared identifiers of Go, such as `nil` or `error`, were reported as missing local symbols. | The complete list of the predeclared identifiers is resolved. | `CDX-REF-001` v2 |
+| The name of an imported package that does not match the last element of its path was reported as a missing symbol. | The package clause of the module directories is read. | `CDX-REF-001` v2 |
+| A description that names a placeholder marker, such as `Description: "explicit not implemented marker"`, was reported as a placeholder. | The explicit markers are scoped to the comments, to the code and to the thrown errors. | `CDX-PLH-001` v2 |

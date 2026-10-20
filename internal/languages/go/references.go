@@ -39,13 +39,21 @@ type UndefinedReference struct {
 // It is false when one of the sibling files could not be parsed, because in
 // that case a declaration may be missing and a false positive would be
 // reported.
-func FindUndefinedReferences(filename string, src []byte, siblings []SiblingFile) ([]UndefinedReference, bool, error) {
+//
+// The packageNames map holds the name that every import of the file
+// declares, keyed by its import path. It resolves the packages whose name
+// does not match the last element of their path. A nil map falls back to
+// the convention of the language.
+func FindUndefinedReferences(filename string, src []byte, siblings []SiblingFile, packageNames map[string]string) ([]UndefinedReference, bool, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
 		return nil, false, err
 	}
-	packageName := file.Name.Name
+	packageName := ""
+	if file.Name != nil {
+		packageName = file.Name.Name
+	}
 
 	declared := map[string]bool{}
 	collectDeclarations(file, declared)
@@ -58,7 +66,7 @@ func FindUndefinedReferences(filename string, src []byte, siblings []SiblingFile
 			complete = false
 			continue
 		}
-		if siblingFile.Name.Name != packageName {
+		if siblingFile.Name == nil || siblingFile.Name.Name != packageName {
 			// Files of another package do not declare visible symbols.
 			continue
 		}
@@ -75,7 +83,11 @@ func FindUndefinedReferences(filename string, src []byte, siblings []SiblingFile
 			imports[spec.Name.Name] = true
 			continue
 		}
-		imports[defaultPackageName(path)] = true
+		name := defaultPackageName(path)
+		if resolved, ok := packageNames[path]; ok && resolved != "" {
+			name = resolved
+		}
+		imports[name] = true
 	}
 
 	ignored := ignoredPositions(file)
@@ -89,7 +101,7 @@ func FindUndefinedReferences(filename string, src []byte, siblings []SiblingFile
 		}
 		ast.Inspect(decl, func(node ast.Node) bool {
 			ident, ok := node.(*ast.Ident)
-			if !ok {
+			if !ok || ident == nil {
 				return true
 			}
 			if ignored[ident.Pos()] {
@@ -125,7 +137,7 @@ func collectDeclarations(file *ast.File, declared map[string]bool) {
 	for _, decl := range file.Decls {
 		generic, ok := decl.(*ast.GenDecl)
 		if !ok {
-			if fn, ok := decl.(*ast.FuncDecl); ok {
+			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Name != nil {
 				declared[fn.Name.Name] = true
 			}
 			continue
@@ -137,7 +149,9 @@ func collectDeclarations(file *ast.File, declared map[string]bool) {
 					declared[name.Name] = true
 				}
 			case *ast.TypeSpec:
-				declared[typed.Name.Name] = true
+				if typed.Name != nil {
+					declared[typed.Name.Name] = true
+				}
 			}
 		}
 	}
@@ -147,6 +161,9 @@ func collectDeclarations(file *ast.File, declared map[string]bool) {
 // parameters, its receiver, its results and every name that it declares.
 func collectLocals(fn *ast.FuncDecl) map[string]bool {
 	locals := map[string]bool{}
+	if fn == nil {
+		return locals
+	}
 	if fn.Recv != nil {
 		for _, field := range fn.Recv.List {
 			for _, name := range field.Names {
@@ -167,6 +184,10 @@ func collectLocals(fn *ast.FuncDecl) map[string]bool {
 				locals[name.Name] = true
 			}
 		}
+	}
+	if fn.Body == nil {
+		// A declaration without a body has no local scope.
+		return locals
 	}
 	ast.Inspect(fn.Body, func(node ast.Node) bool {
 		switch typed := node.(type) {
@@ -216,11 +237,15 @@ func collectLocals(fn *ast.FuncDecl) map[string]bool {
 // and the selected side of a selector expression.
 func ignoredPositions(file *ast.File) map[token.Pos]bool {
 	ignored := map[token.Pos]bool{}
-	ignored[file.Name.Pos()] = true
+	if file.Name != nil {
+		ignored[file.Name.Pos()] = true
+	}
 	ast.Inspect(file, func(node ast.Node) bool {
 		switch typed := node.(type) {
 		case *ast.FuncDecl:
-			ignored[typed.Name.Pos()] = true
+			if typed.Name != nil {
+				ignored[typed.Name.Pos()] = true
+			}
 		case *ast.FuncLit:
 			// The parameters and the results are declarations.
 		case *ast.ValueSpec:
@@ -228,7 +253,9 @@ func ignoredPositions(file *ast.File) map[token.Pos]bool {
 				ignored[name.Pos()] = true
 			}
 		case *ast.TypeSpec:
-			ignored[typed.Name.Pos()] = true
+			if typed.Name != nil {
+				ignored[typed.Name.Pos()] = true
+			}
 		case *ast.Field:
 			for _, name := range typed.Names {
 				ignored[name.Pos()] = true
@@ -238,9 +265,14 @@ func ignoredPositions(file *ast.File) map[token.Pos]bool {
 				ignored[typed.Name.Pos()] = true
 			}
 		case *ast.LabeledStmt:
-			ignored[typed.Label.Pos()] = true
+			if typed.Label != nil {
+				ignored[typed.Label.Pos()] = true
+			}
 		case *ast.BranchStmt:
-			ignored[typed.Label.Pos()] = true
+			// The label of a break or a continue is optional.
+			if typed.Label != nil {
+				ignored[typed.Label.Pos()] = true
+			}
 		case *ast.AssignStmt:
 			if typed.Tok != token.DEFINE {
 				return true
@@ -261,7 +293,9 @@ func ignoredPositions(file *ast.File) map[token.Pos]bool {
 			// to a package level symbol. The base of the selector is
 			// resolved as a normal reference: it is skipped when it is an
 			// imported package name.
-			ignored[typed.Sel.Pos()] = true
+			if typed.Sel != nil {
+				ignored[typed.Sel.Pos()] = true
+			}
 		case *ast.KeyValueExpr:
 			if ident, ok := typed.Key.(*ast.Ident); ok {
 				ignored[ident.Pos()] = true

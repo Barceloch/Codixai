@@ -94,8 +94,15 @@ func Profile() lexical.Profile {
 			},
 			{
 				Pattern:     regexp.MustCompile(`not\s+implemented`),
-				Description: "explicit not implemented marker",
+				Description: "explicit not implemented marker in a comment",
+				Scope:       lexical.ScopeComment,
+				Explicit:    true,
+			},
+			{
+				Pattern:     regexp.MustCompile(`not\s+implemented`),
+				Description: "explicit not implemented marker in a thrown error",
 				Scope:       lexical.ScopeAny,
+				Require:     regexp.MustCompile(`(?i)\b(panic|throw|raise)\b`),
 				Explicit:    true,
 			},
 			{

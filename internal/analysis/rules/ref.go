@@ -32,7 +32,13 @@ func checkReferences(ctx *Context) ([]domain.Finding, error) {
 		ctx.Diagnostic("the package directory cannot be read, so the references cannot be resolved")
 		return nil, nil
 	}
-	references, complete, err := golang.FindUndefinedReferences(ctx.View.Path, source, siblings)
+	manifest := golang.ReadManifest(ctx.Root)
+	packageNames, err := golang.ImportPackageNames(ctx.Root, manifest.Module, source)
+	if err != nil {
+		ctx.Diagnostic(fmt.Sprintf("the imports of the Go file cannot be resolved: %v", err))
+		return nil, nil
+	}
+	references, complete, err := golang.FindUndefinedReferences(ctx.View.Path, source, siblings, packageNames)
 	if err != nil {
 		ctx.Diagnostic(fmt.Sprintf("the Go file cannot be parsed: %v", err))
 		return nil, nil
