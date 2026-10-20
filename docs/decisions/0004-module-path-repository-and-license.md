@@ -58,6 +58,12 @@ these:
 Nothing else depends on the URL, the organization or the license: no source
 file mentions them, and no test asserts them.
 
+### The confirmation log
+
+| Date | Decision | Answer |
+| ---- | -------- | ------ |
+| 2026-10-20 | License | Asked: Apache-2.0 (the proposal), MIT, or keep it pending. Answer: **keep it pending**. No `LICENSE` file is added, and the repository is not distributable until the license is confirmed. |
+
 ## Consequences
 
 Positive:

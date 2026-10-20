@@ -44,6 +44,11 @@ Apache-2.0. No license is granted by this repository until the maintainer
 confirms it and the `LICENSE` file is added. Do not assume any right to
 redistribute the code until that file exists.
 
+The maintainer was asked on 2026-10-20 and decided to keep the license
+pending, so the repository is currently **not distributable**. The decision
+is recorded in
+[`docs/decisions/0004-module-path-repository-and-license.md`](docs/decisions/0004-module-path-repository-and-license.md).
+
 ## Why it exists
 
 An agent can produce a large diff in seconds. Reviewing that diff well
