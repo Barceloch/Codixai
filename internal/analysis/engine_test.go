@@ -89,8 +89,14 @@ func runFixture(t *testing.T, testCase fixtureCase) {
 	if err != nil {
 		t.Fatalf("the directory of the case cannot be resolved: %v", err)
 	}
-	if info, err := os.Stat(filepath.Join(root, "repo")); err == nil && info.IsDir() {
-		root = filepath.Join(root, "repo")
+	// A case may bring its own repository, named after the case, or share
+	// the repository of the directory that holds it.
+	for _, candidate := range []string{testCase.CaseName + ".repo", "repo"} {
+		info, err := os.Stat(filepath.Join(root, candidate))
+		if err == nil && info.IsDir() {
+			root = filepath.Join(root, candidate)
+			break
+		}
 	}
 	changes.Root = root
 	changes.Origin = domain.OriginWorktree
