@@ -10,6 +10,7 @@ import (
 
 	"github.com/barceloch/codixai/internal/cli/ui"
 	"github.com/barceloch/codixai/internal/policies"
+	"github.com/barceloch/codixai/internal/report"
 )
 
 // Version is the version of the tool.
@@ -33,8 +34,16 @@ type Env struct {
 	// command runs in the current directory.
 	Root string
 	// Format is the output format of the commands that produce a
-	// document: text or json.
+	// document: text or json, or sarif for the report command.
 	Format string
+	// FormatSet reports whether the invocation asked for a format
+	// explicitly.
+	//
+	// A command with a format of its own has to tell the default of the
+	// tool apart from an explicit choice, so that "codixai report" writes
+	// its own format and "codixai report --format text" is reported as an
+	// invalid combination instead of being silently ignored.
+	FormatSet bool
 	// NoColor disables the color output.
 	NoColor bool
 	// Plain disables every decoration of the output.
@@ -62,12 +71,29 @@ func (e *Env) JSON() bool {
 }
 
 // validate checks the global options of the invocation.
-func (e *Env) validate() error {
-	switch strings.ToLower(strings.TrimSpace(e.Format)) {
+//
+// The target is the name of the command that is about to run. The SARIF
+// format belongs to the report command, so a command that cannot write it
+// reports the invalid format instead of silently writing another one: the
+// standard output would hold a document that nobody asked for.
+func (e *Env) validate(target string) error {
+	format := strings.ToLower(strings.TrimSpace(e.Format))
+	switch format {
 	case policies.FormatText, policies.FormatJSON:
 		return nil
+	case report.Format:
+		if target == "report" {
+			return nil
+		}
+		if target == "" {
+			target = "codixai"
+		}
+		return Usagef("the format %q is not available for %q: it is the format of the report command, "+
+			"use 'codixai report --format %s', or one of %s, %s",
+			e.Format, target, report.Format, policies.FormatText, policies.FormatJSON)
 	default:
-		return Usagef("invalid output format %q, expected one of %s, %s", e.Format, policies.FormatText, policies.FormatJSON)
+		return Usagef("invalid output format %q, expected one of %s, %s, %s",
+			e.Format, policies.FormatText, policies.FormatJSON, report.Format)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +36,7 @@ func NewRootCommand(env *Env) *Command {
 			"a package manager and never accesses the network.",
 		Example: "codixai audit --diff --worktree\n" +
 			"codixai audit --diff --base main\n" +
+			"codixai report --format sarif --base main\n" +
 			"codixai baseline create --base main\n" +
 			"codixai verify --base main --claims claims.json\n" +
 			"codixai init\n" +
@@ -43,7 +45,7 @@ func NewRootCommand(env *Env) *Command {
 	}
 	root.Flags = func(fs *flag.FlagSet) {
 		fs.StringVar(&env.Root, "root", "", "Root of the analyzed repository. Defaults to the current directory.")
-		fs.StringVar(&env.Format, "format", policies.FormatText, "Output format of the commands that produce a document: text or json.")
+		fs.StringVar(&env.Format, "format", policies.FormatText, "Output format of the commands that produce a document: text or json, or sarif for the report command.")
 		fs.BoolVar(&env.NoColor, "no-color", false, "Disable the color output.")
 		fs.BoolVar(&env.Plain, "plain", false, "Print the output without decoration.")
 		fs.BoolVar(&env.ShowVersion, "version", false, "Print the version of the tool and exit.")
@@ -60,6 +62,7 @@ func NewRootCommand(env *Env) *Command {
 	}
 
 	root.AddCommand(newAuditCommand(env))
+	root.AddCommand(newReportCommand(env))
 	root.AddCommand(newBaselineCommand(env))
 	root.AddCommand(newVerifyCommand(env))
 	root.AddCommand(newInitCommand(env))
@@ -362,17 +365,28 @@ func runAudit(ctx context.Context, env *Env, options *auditOptions) error {
 	}
 
 	if env.JSON() {
-		encoder := json.NewEncoder(env.Stdout)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(result.Run); err != nil {
-			return fmt.Errorf("cannot write the analysis document: %w", err)
+		if err := writeJSONDocument(env.Stdout, result.Run, "analysis document"); err != nil {
+			return err
 		}
 	} else {
 		writeAuditReport(env.Stdout, env.Renderer(), result, root)
 	}
 
-	// The diagnostics never reach the standard output: the standard output
-	// only holds the document that was requested.
+	writeAuditDiagnostics(env, result)
+	if result.Failed {
+		return &FindingsError{Count: result.FailingFindings, Threshold: result.FailOn}
+	}
+	return nil
+}
+
+// writeAuditDiagnostics writes the diagnostics of an audit to the standard
+// error.
+//
+// The diagnostics never reach the standard output: the standard output only
+// holds the document that was requested. The findings that the policy or the
+// baseline removed are not in the document, so their count is a diagnostic of
+// the run.
+func writeAuditDiagnostics(env *Env, result *application.AuditResult) {
 	if len(result.ExcludedFiles) > 0 {
 		fmt.Fprintf(env.Stderr, "codixai: %d file(s) excluded by the configuration: %s\n",
 			len(result.ExcludedFiles), strings.Join(result.ExcludedFiles, ", "))
@@ -380,13 +394,20 @@ func runAudit(ctx context.Context, env *Env, options *auditOptions) error {
 	if len(result.Suppressed) > 0 {
 		fmt.Fprintf(env.Stderr, "codixai: %d finding(s) suppressed by the configuration\n", len(result.Suppressed))
 	}
-	// The findings that the baseline already knows are kept out of the
-	// document, so their count is a diagnostic of the run.
 	if result.KnownFindings > 0 {
 		fmt.Fprintf(env.Stderr, "codixai: %d finding(s) known by the baseline, not reported\n", result.KnownFindings)
 	}
-	if result.Failed {
-		return &FindingsError{Count: result.FailingFindings, Threshold: result.FailOn}
+}
+
+// writeJSONDocument writes a JSON document with the layout of the tool.
+//
+// Every command writes its document through this function, so two commands
+// that produce the same value produce the same bytes.
+func writeJSONDocument(w io.Writer, value any, name string) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(value); err != nil {
+		return fmt.Errorf("cannot write the %s: %w", name, err)
 	}
 	return nil
 }

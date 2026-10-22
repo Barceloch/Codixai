@@ -307,6 +307,22 @@ func (c *Command) isPersistent(name string) bool {
 	return false
 }
 
+// target returns the name of the subcommand that the invocation selects.
+//
+// It is empty when the invocation selects no command or when the first
+// argument is not a command: the name is used to explain which formats the
+// selected command can write, so an unknown name is not reported as if it
+// were a command of the tree.
+func (c *Command) target(rest []string) string {
+	if len(rest) == 0 {
+		return ""
+	}
+	if command := c.lookup(rest[0]); command != nil {
+		return command.Name()
+	}
+	return ""
+}
+
 // needsValue reports whether a flag consumes the next argument.
 //
 // A boolean flag never consumes a value, and a flag written with an equal
@@ -345,6 +361,16 @@ func (c *Command) dispatch(ctx context.Context, args []string) error {
 				Err:     err,
 			}
 		}
+		// An explicit format is remembered, so that a command with a
+		// format of its own can tell it apart from the default of the
+		// tool.
+		if env := envFrom(ctx); env != nil {
+			c.flagSet().Visit(func(f *flag.Flag) {
+				if f.Name == "format" {
+					env.FormatSet = true
+				}
+			})
+		}
 		args = remaining
 	}
 	flagArgs, rest, err := c.splitFlags(args)
@@ -365,9 +391,10 @@ func (c *Command) dispatch(ctx context.Context, args []string) error {
 	}
 	if c.parent == nil {
 		// The global options are validated once, as soon as the flags of
-		// the root command are parsed.
+		// the root command are parsed. The command that the invocation
+		// selects decides which formats it can write.
 		if env := envFrom(ctx); env != nil {
-			if err := env.validate(); err != nil {
+			if err := env.validate(c.target(rest)); err != nil {
 				return err
 			}
 		}
