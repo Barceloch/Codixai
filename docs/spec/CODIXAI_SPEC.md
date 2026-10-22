@@ -802,7 +802,7 @@ Codixai debe poder compartirse desde las primeras fases, aunque se encuentre en 
 
 Publicar releases con etiquetas Git, changelog y binarios reproducibles para las plataformas que se hayan validado. Ofrecer instalación desde el código fuente y documentar qué plataformas están probadas.
 
-**Variantes (desde la Fase 7):** la variante solo-CLI (la predeterminada de `go build` y `go install`, sin Node.js ni webview) y la variante con UI (CLI más `codixai ui`). La segunda se compila en CI por plataforma, porque el frontend se incrusta como activos y el modo de escritorio depende de bibliotecas nativas. Ambas salen del mismo código. Cada release indica qué variante es cada artefacto y los requisitos de sistema de la variante con UI (por ejemplo, el runtime WebView2 en Windows y las bibliotecas WebKitGTK en Linux; confirmar la lista en el ADR 7.0).
+**Variantes (desde la Fase 7):** la variante solo-CLI (la predeterminada de `go build` y `go install`, sin Node.js ni webview) y la variante con UI (CLI más `codixai ui`). La segunda se compila en CI por plataforma, porque el frontend se incrusta como activos y el modo de escritorio depende de bibliotecas nativas. Ambas salen del mismo código. **Política de distribución (decisión 13, resuelta el 2026-10-22): el artefacto publicado es un binario único que contiene la CLI y la interfaz gráfica.** La variante solo-CLI no se publica como artefacto de release: se mantiene para `go install`, para las tuberías y para los entornos sin sistema gráfico. Cada release indica los requisitos de sistema del binario publicado (por ejemplo, el runtime WebView2 en Windows y las bibliotecas WebKitGTK en Linux; confirmar la lista en el ADR 7.0). La decisión está en el ADR 0010 del repositorio.
 
 La licencia del proyecto es MIT, confirmada por el mantenedor el 2026-10-20 y registrada en el archivo `LICENSE` del repositorio. La decisión y su historial están en el ADR 0004 del repositorio.
 
@@ -960,7 +960,7 @@ Antes de fijar dependencias o comenzar la fase de análisis, el agente debe revi
 10. Formatos de informes de pruebas aceptados como evidencia aportada (por ejemplo, JUnit XML, `go test -json`, TAP) y reglas de vinculación a una revisión.
 11. Versión de Wails (v2 estable o v3 beta, que ofrece servicios tipados y modo servidor) y política de actualización; decidir con el spike 7.0 y registrar en un ADR. No mezclar APIs de ambas versiones.
 12. Si se incluye un modo servidor local (navegador en loopback) además de la ventana de escritorio, y con qué controles de seguridad.
-13. Política de distribución de la variante con UI (binario único CLI más UI frente a solo-CLI como predeterminada) y plataformas soportadas para la UI.
+13. Política de distribución de la variante con UI (binario único CLI más UI frente a solo-CLI como predeterminada) y plataformas soportadas para la UI. **Resuelta el 2026-10-22: binario único CLI más UI** (ADR 0010 del repositorio). Las plataformas soportadas para la UI siguen pendientes.
 14. Idiomas de la interfaz (español, inglés) y política de traducción.
 
 Las decisiones 11 a 14 solo bloquean la Fase 7.
@@ -975,6 +975,7 @@ Estas decisiones no deben bloquear la creación de la base ejecutable, salvo aqu
 
 ### Mantenimiento posterior a la versión 0.6.0
 
+- 2026-10-22: el mantenedor decide que el artefacto publicado es un **binario único con la CLI y la interfaz gráfica** (decisión 13 resuelta, ADR 0010 del repositorio).
 - 2026-10-20: el mantenedor confirma la licencia **MIT** y resuelve la decisión pendiente 2. El repositorio publica el archivo `LICENSE` con el texto íntegro de la licencia. La decisión está registrada en el ADR 0004 del repositorio, junto con la URL del repositorio y el camino del módulo.
 
 ### Versión 0.6.0 respecto a 0.5.0

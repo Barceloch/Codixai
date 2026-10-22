@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/barceloch/codixai/internal/baseline"
 	"github.com/barceloch/codixai/internal/domain"
 	"github.com/barceloch/codixai/internal/policies"
 )
@@ -30,6 +31,13 @@ type AuditRequest struct {
 	// configuration of the repository, and the defaults when the
 	// repository has none.
 	Config *policies.Config
+	// SkipBaseline disables the application of the baseline of the
+	// repository.
+	//
+	// The command that creates a baseline needs the whole set of the
+	// findings of the compared range, so it asks for the audit without the
+	// baseline: a baseline never hides the findings it creates.
+	SkipBaseline bool
 }
 
 // AuditResult is the outcome of an audit.
@@ -44,11 +52,22 @@ type AuditResult struct {
 	FailingFindings int
 	// Suppressed holds the findings that the configuration suppresses.
 	Suppressed []domain.Finding
+	// Known holds the findings that the baseline of the repository already
+	// knows. They are not new findings and they do not reach the threshold.
+	Known []domain.Finding
+	// KnownFindings counts the findings that the baseline knows.
+	KnownFindings int
 	// ExcludedFiles holds the paths that the configuration excludes from
 	// the analysis.
 	ExcludedFiles []string
 	// ChangedFiles counts the files that the analysis considered.
 	ChangedFiles int
+	// Changes is the change set that the analysis inspected, after the
+	// exclusion of the configured paths.
+	//
+	// The command that creates a baseline needs it: the identity of a
+	// finding is computed from the diff of the compared range.
+	Changes *domain.ChangeSet
 }
 
 // RunAudit audits the changes of a repository.
@@ -61,6 +80,11 @@ type AuditResult struct {
 // rules and the policy knows the decisions of the repository: a rule can
 // be disabled, its severity can be overridden and a finding can be
 // suppressed with an explicit and justified exception.
+//
+// The baseline of the repository is applied after the policy, for the same
+// reason: the baseline holds the decisions that the repository took about
+// its own findings. The document of the audit only holds the new findings,
+// so its shape and its schema version do not change.
 func RunAudit(ctx context.Context, request AuditRequest) (*AuditResult, error) {
 	if request.Source == nil {
 		return nil, fmt.Errorf("the audit needs a change source")
@@ -103,6 +127,14 @@ func RunAudit(ctx context.Context, request AuditRequest) (*AuditResult, error) {
 	}
 
 	findings, suppressed := applyPolicy(run.Findings, config)
+
+	var known []domain.Finding
+	if !request.SkipBaseline {
+		findings, known, err = applyBaseline(request.Root, config, findings, changes)
+		if err != nil {
+			return nil, err
+		}
+	}
 	run.Findings = findings
 	run.Summary = summarize(findings)
 
@@ -114,8 +146,11 @@ func RunAudit(ctx context.Context, request AuditRequest) (*AuditResult, error) {
 		Run:           run,
 		FailOn:        failOn,
 		Suppressed:    suppressed,
+		Known:         known,
+		KnownFindings: len(known),
 		ExcludedFiles: excluded,
 		ChangedFiles:  len(changes.Files),
+		Changes:       changes,
 	}
 	threshold := thresholdRank(failOn)
 	for _, finding := range findings {
@@ -187,6 +222,43 @@ func applyPolicy(findings []domain.Finding, config *policies.Config) ([]domain.F
 		kept = append(kept, finding)
 	}
 	return kept, suppressed
+}
+
+// applyBaseline applies the baseline of the repository to the findings.
+//
+// It returns the findings that the baseline does not know and the findings
+// that it knows. A known finding is not a new finding and it does not reach
+// the threshold of the command.
+//
+// A finding whose line is not part of the diff is identified by the rule and
+// the path only, and the baseline recognizes it as long as the rule and the
+// path do not change.
+func applyBaseline(root string, config *policies.Config, findings []domain.Finding, changes *domain.ChangeSet) ([]domain.Finding, []domain.Finding, error) {
+	path := strings.TrimSpace(config.Audit.Baseline)
+	if path == "" {
+		return findings, nil, nil
+	}
+	resolved, err := baseline.Resolve(root, path)
+	if err != nil {
+		return nil, nil, err
+	}
+	file, err := baseline.Load(resolved)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(file.Findings) == 0 {
+		return findings, nil, nil
+	}
+	kept := make([]domain.Finding, 0, len(findings))
+	var known []domain.Finding
+	for _, finding := range findings {
+		if file.Knows(changes, finding) {
+			known = append(known, finding)
+			continue
+		}
+		kept = append(kept, finding)
+	}
+	return kept, known, nil
 }
 
 // summarize counts the findings by severity, rule, language and epistemic

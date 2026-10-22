@@ -35,6 +35,7 @@ func NewRootCommand(env *Env) *Command {
 			"a package manager and never accesses the network.",
 		Example: "codixai audit --diff --worktree\n" +
 			"codixai audit --diff --base main\n" +
+			"codixai baseline create --base main\n" +
 			"codixai verify --base main --claims claims.json\n" +
 			"codixai init\n" +
 			"codixai version",
@@ -59,6 +60,7 @@ func NewRootCommand(env *Env) *Command {
 	}
 
 	root.AddCommand(newAuditCommand(env))
+	root.AddCommand(newBaselineCommand(env))
 	root.AddCommand(newVerifyCommand(env))
 	root.AddCommand(newInitCommand(env))
 	root.AddCommand(newVersionCommand(env))
@@ -293,6 +295,12 @@ func newAuditCommand(env *Env) *Command {
 			"a revision, --staged audits the staging area and --worktree audits the\n" +
 			"changes that are not committed yet.\n" +
 			"\n" +
+			"The command applies the baseline of the repository, at the path of the\n" +
+			"audit.baseline key of the configuration. A finding that the baseline knows\n" +
+			"is not reported and does not reach the failure threshold; its count is a\n" +
+			"diagnostic of the standard error. Create or refresh the baseline with\n" +
+			"'codixai baseline create'.\n" +
+			"\n" +
 			"The command reads the repository: it never modifies it.",
 		Example: "codixai audit --diff --worktree\n" +
 			"codixai audit --diff --staged\n" +
@@ -324,7 +332,7 @@ func runAudit(ctx context.Context, env *Env, options *auditOptions) error {
 		return Usagef("the flag --diff is required: this milestone audits changes only, " +
 			"use --diff with --base, --staged or --worktree")
 	}
-	origin, base, err := resolveOrigin(options)
+	origin, base, err := resolveOrigin(options.base, options.staged, options.worktree, "audit")
 	if err != nil {
 		return err
 	}
@@ -372,6 +380,11 @@ func runAudit(ctx context.Context, env *Env, options *auditOptions) error {
 	if len(result.Suppressed) > 0 {
 		fmt.Fprintf(env.Stderr, "codixai: %d finding(s) suppressed by the configuration\n", len(result.Suppressed))
 	}
+	// The findings that the baseline already knows are kept out of the
+	// document, so their count is a diagnostic of the run.
+	if result.KnownFindings > 0 {
+		fmt.Fprintf(env.Stderr, "codixai: %d finding(s) known by the baseline, not reported\n", result.KnownFindings)
+	}
 	if result.Failed {
 		return &FindingsError{Count: result.FailingFindings, Threshold: result.FailOn}
 	}
@@ -379,27 +392,31 @@ func runAudit(ctx context.Context, env *Env, options *auditOptions) error {
 }
 
 // resolveOrigin returns the origin of the changes and the base revision.
-func resolveOrigin(options *auditOptions) (domain.ChangeOrigin, string, error) {
+//
+// The action names what the changes are selected for, so that the error
+// tells the user which invocation to write: the audit and the command that
+// creates a baseline accept the same three origins.
+func resolveOrigin(base string, staged, worktree bool, action string) (domain.ChangeOrigin, string, error) {
 	selected := 0
-	if strings.TrimSpace(options.base) != "" {
+	if strings.TrimSpace(base) != "" {
 		selected++
 	}
-	if options.staged {
+	if staged {
 		selected++
 	}
-	if options.worktree {
+	if worktree {
 		selected++
 	}
 	switch {
 	case selected == 0:
-		return "", "", Usagef("no origin selected: use --base <ref>, --staged or --worktree to choose the changes to audit")
+		return "", "", Usagef("no origin selected: use --base <ref>, --staged or --worktree to choose the changes to %s", action)
 	case selected > 1:
 		return "", "", Usagef("several origins selected: use only one of --base <ref>, --staged or --worktree")
 	}
-	if strings.TrimSpace(options.base) != "" {
-		return domain.OriginBase, options.base, nil
+	if strings.TrimSpace(base) != "" {
+		return domain.OriginBase, base, nil
 	}
-	if options.staged {
+	if staged {
 		return domain.OriginStaged, "", nil
 	}
 	return domain.OriginWorktree, "", nil
