@@ -18,13 +18,14 @@ branch.
   and uses only the Go standard library, with no third-party dependency. The
   binary is built with `go build ./cmd/codixai`.
 - **Command framework and command tree** in `internal/cli`: the commands
-  `audit`, `init`, `version` and `help`; the global flags `--root`,
+  `audit`, `verify`, `init`, `version` and `help`; the global flags `--root`,
   `--format`, `--no-color`, `--plain` and `--version`; the `audit` flags
-  `--diff`, `--base`, `--staged`, `--worktree` and `--rules`; the `init` flag
-  `--force`.
+  `--diff`, `--base`, `--staged`, `--worktree` and `--rules`; the `verify`
+  flags `--base` and `--claims`; the `init` flag `--force`.
 - **Exit code convention**: `0` success, `1` execution or configuration
   error, `2` invalid arguments, `3` findings that reach the configured
-  `fail_on` threshold.
+  `fail_on` threshold, or a claim of the verification that is
+  `contradicted`.
 - **Presentation layer** in `internal/cli/ui`: a centralized renderer, a
   table helper, `NO_COLOR` detection, terminal detection, and a plain mode
   that removes every decoration.
@@ -65,13 +66,69 @@ branch.
   writes outside of it.
 - **Documentation**: the README, the contributing guide, the code of conduct,
   the security policy, the changelog, the architecture overview, the
-  implementation conventions, the task format with the Phase 0 and Phase 1
-  task lists, and six architecture decision records.
+  implementation conventions, the task format with the Phase 0, Phase 1,
+  Phase 2 and Phase 7 task lists, and seven architecture decision records.
 - **Agent context package**: `AGENTS.md`, `opencode.json`, the read-only
   `codixai-reviewer` subagent and the `/task` and `/review` commands.
 - **CI** in `.github/workflows/ci.yml`: a formatting job, `go vet`,
   `go test ./... -race`, a build matrix for Linux, macOS and Windows, and an
   explicit job for the support matrix validation.
+
+### Added — Phase 2, the verification of claims
+
+- **`codixai verify --base <ref> --claims <file>`.** The command compares the
+  claims of an agent with the changes between the base revision and the head
+  of the repository, and it reports one state per claim: `verified`,
+  `contradicted` or `unresolved`. Both flags are required; a missing one is
+  an invalid invocation with the exit code `2`.
+- **The claim contract and its decision** in
+  [`docs/decisions/0007-claim-format-and-report-linking.md`](docs/decisions/0007-claim-format-and-report-linking.md).
+  The claim file is a versioned document: `schema_version` is required and is
+  `0.1`, `base` is optional and has to match the base of the comparison, and
+  every claim needs a unique `id` and a `type` of the catalog. An unknown
+  type or an unknown field is an error, never an unresolved claim.
+- **The claim catalog** in `internal/claims`: `files_unchanged`, `scope`,
+  `tests_added`, `tests_modified`, `dependency_unchanged`,
+  `dependency_added`, `api_unchanged`, `tests_passed` and
+  `behavior_preserved`. The evaluator computes every state from the diff, the
+  manifests of the repository and the external reports.
+- **The readers of the external test reports** in `internal/claims`: JUnit
+  XML (`.xml`) and the JSON stream of `go test -json` (`.json`), read with the
+  standard library. A report is linked to the revision under analysis when
+  the claim declares the `report_revision` or when the report declares the
+  revision itself. An unlinked report leaves the claim `unresolved`, and the
+  evidence always states that the provenance of the report is external.
+  **Codixai never runs the tests of the analyzed repository.**
+- **The verification document**: a versioned JSON document with
+  `schema_version`, `tool_version`, `generated_at`, `base`, `head`,
+  `results`, `summary` and `limitations`, sorted by the identifier of the
+  claim.
+- **The exit code policy**: `3` when a claim is `contradicted`; an
+  `unresolved` claim only fails when the configuration of the repository sets
+  `verify.fail_on_unresolved: true`, which is not the default.
+- **The corpus of the claims** in `testdata/claims`: one case per type and
+  per state the type can reach, with a diff, a claim file and the expected
+  result. The corpus is synthetic: the diffs are written by hand and are not
+  diffs produced by external agents.
+- **The architecture test** `internal/application/architecture_test.go`: it
+  verifies that the application layer imports neither the command line nor
+  the user interface nor a desktop toolkit, and that the domain imports no
+  package of the project. It is the requirement 8.7.1 of the specification,
+  and it holds from the first phase.
+
+### Changed
+
+- **The specification is adopted in its version 0.6.0.** It adds the local
+  graphical interface (Wails, Svelte and daisyUI) as Phase 7, the
+  requirements that hold from Phase 0, the rules of the section 17.9 and the
+  pending decisions 11 to 14. The architecture of the project already
+  satisfies the requirements of the section 8.7; the interface itself does
+  not exist.
+- **The license is the MIT License**, confirmed by the maintainer on
+  2026-10-20 and recorded in the ADR 0004. The `LICENSE` file holds its
+  verbatim text.
+- **The module path is `github.com/barceloch/codixai`**, in lower case, and
+  the repository is `https://github.com/Barceloch/Codixai`.
 
 ### Known limitations
 
@@ -91,8 +148,23 @@ branch.
   change does not touch is out of scope.
 - There is no persistent index, no symbol graph, no `index`, `status`,
   `overview`, `find`, `refs` or `deps` command.
-- There is no `verify` command, no claim verification, no SARIF export, no
-  baseline support and no MCP server.
+- There is no SARIF export, no baseline support and no MCP server.
+- The `api_unchanged` and the `behavior_preserved` claims are always
+  `unresolved`: the public API is not extracted yet, and static analysis does
+  not decide the behavior of a change. They are part of the catalog on
+  purpose, and they never become `verified`.
+- A `tests_passed` claim is only decided by a report that declares the
+  revision under analysis. A report without a revision leaves the claim
+  `unresolved`, even when it is honest. The reports are external evidence:
+  Codixai did not produce them and cannot vouch for them.
+- The `scope` and the `files_unchanged` claims are checked against the whole
+  compared range: the paths that the configuration excludes from the analysis
+  are not excluded from the claims.
+- The corpus of the claims is synthetic. The diffs were written by hand and
+  are not diffs produced by external agents.
+- There is no graphical interface: no `codixai ui` command, no Wails adapter
+  and no Svelte frontend. The interface belongs to Phase 7, and the `ui`
+  build variant does not exist yet.
 - Only Linux was exercised in the development environment. The macOS and
   Windows builds are defined in CI but their results have not been observed.
 - No release has been published: there is no tag, no packaged binary and no

@@ -1,11 +1,12 @@
 # Architecture overview
 
 This document describes the layers of Codixai, the direction of the
-dependencies, the data flow of an audit, the domain model, the extension
-points, and the known limits of the current implementation.
+dependencies, the data flow of an audit and of a verification, the domain
+model, the extension points, and the known limits of the current
+implementation.
 
 The product contract is the specification
-([`docs/spec/CODIXAI_SPEC.md`](../spec/CODIXAI_SPEC.md), v0.5.0). This
+([`docs/spec/CODIXAI_SPEC.md`](../spec/CODIXAI_SPEC.md), v0.6.0). This
 document describes what the code actually does today.
 
 ## Layers
@@ -16,21 +17,47 @@ cmd/codixai                 process entry point, calls cli.Execute
 internal/cli                command tree, flag parsing, exit codes, rendering
   |
 internal/application        use cases and the ports they need
-  |                         (ChangeSource, DiffAnalyzer)
+  |                         (ChangeSource, DiffAnalyzer, ClaimLoader,
+  |                          ClaimEvaluator)
   |
 internal/analysis           the analysis engine
 internal/analysis/rules     the rule catalog
+internal/claims             the claim contract, the evaluator and the
+  |                         readers of the external test reports
 internal/languages          the language registry, the lexical scanner, the
   |                         language packages
+internal/claims             the claim contract, the evaluator and the
+  |                         readers of the external test reports
   +-------------------------+
   |
 internal/domain             the models, with no dependency on anything else
+internal/glob               the glob matcher of the repository paths
 internal/policies           the configuration of the analyzed repository
 internal/integrations/git   the read-only Git provider
 ```
 
 `internal/policies` is a leaf like `internal/domain`: it holds the
 configuration model and its loader, and it does not depend on the use cases.
+`internal/glob` is a leaf too: it holds the glob matcher, it never touches
+the filesystem, and it exists so that the exclusion patterns of the
+configuration and the paths of the claims share one syntax without
+depending on each other.
+
+### The layers that do not exist yet
+
+The local graphical interface belongs to Phase 7 and is not implemented. The
+place it will have is already decided by the specification:
+
+```text
+internal/ui/                the Wails adapter, behind the `ui` build tag
+ui/embed.go                 embeds the compiled assets, behind the `ui` build tag
+ui/frontend/                Svelte + Vite + Tailwind + daisyUI, compiled to
+                            ui/frontend/dist
+```
+
+The build tag is what keeps the default variant free of Node.js, of Wails
+and of the webview dependencies, and it is what keeps the CLI usable in a
+terminal, in CI and in a container.
 
 ## The dependency rule
 
@@ -39,14 +66,17 @@ configuration model and its loader, and it does not depend on the use cases.
   standard library. The models are the contract that the CLI, the future MCP
   server and any other consumer share.
 - **`internal/application` declares the ports.** `ChangeSource` collects the
-  changes of a repository; `DiffAnalyzer` applies the rules to a change set.
-  The use case `RunAudit` receives the implementations as parameters, so it
-  never depends on a provider.
+  changes of a repository; `DiffAnalyzer` applies the rules to a change set;
+  `ClaimLoader` reads a claim file and checks its base; `ClaimEvaluator`
+  computes the result of every claim. The use cases `RunAudit` and
+  `RunVerify` receive the implementations as parameters, so they never
+  depend on a provider.
 - **The providers implement the ports.** `internal/integrations/git.Source`
   implements `ChangeSource` and asserts it at compile time with
   `var _ application.ChangeSource = (*Source)(nil)`.
   `internal/analysis.Engine` implements `DiffAnalyzer` with the same
-  assertion.
+  assertion. `internal/claims.Loader` implements `ClaimLoader` and
+  `internal/claims.Evaluator` implements `ClaimEvaluator`.
 - **`internal/cli` is the composition root.** It wires the use case to the
   providers, applies the policy of the repository and renders the result. It
   never implements a rule.
@@ -57,6 +87,36 @@ configuration model and its loader, and it does not depend on the use cases.
 The direction never goes back up: the domain knows nothing about the CLI, and
 the analysis engine knows nothing about the command line. A future web
 application or MCP server would call the same use cases.
+
+### The direction of the dependencies of the future interface
+
+```text
+ui  ->  application  ->  domain
+```
+
+The interface would call the same use cases and would return the same
+versioned documents that `--format json` returns today, so the two
+presentations have to show the same result for the same change; an
+automated test will check it (the task P7-11 of
+[`docs/tasks/phase-7.md`](../tasks/phase-7.md)). The adapter only
+translates: it holds no rule and no analysis logic. The requirement is
+verified from the first phase by
+`internal/application/architecture_test.go`, which fails when the
+application layer imports the CLI, the user interface or a desktop toolkit,
+or when the domain imports any package of the project.
+
+## The requirements of the section 8.7 of the specification
+
+The specification requires five things from Phase 0. This is how each one
+is met today.
+
+| Requirement | How it is met today |
+| ----------- | -------------------- |
+| 8.7.1 The application layer depends on neither the CLI nor the UI, and an architecture test verifies it. | The application layer declares the ports and receives the providers as parameters. `internal/application/architecture_test.go` parses the imports of the package and of the domain and fails on a forbidden one. |
+| 8.7.2 The results are versioned, serializable DTOs. | Every document carries `schema_version` (`0.1`) and is produced with `encoding/json`. The models live in `internal/domain` and the documents of the use cases in `internal/application`. |
+| 8.7.3 The long operations receive a `context` and report progress. | The use cases take a `context.Context` and check it with `ctx.Err()` between the steps of a run. The progress phases are not reported yet: the CLI has no progress output, and the phases of the interface will be the ones of the CLI. |
+| 8.7.4 Every file access is bounded to the selected root. | The root is resolved once by the CLI. The paths of a claim and the path of a report are relative to the root and cannot escape it: the loader rejects an absolute path, a Windows drive and a `..` segment. The Git provider is invoked with the root as its working directory. The claim file itself is a file the user names explicitly with `--claims`. |
+| 8.7.5 The UI specific code lives behind build tags. | There is no UI code yet. The phase 7 tasks will put the Wails adapter and the embedded assets behind the `ui` build tag, so the default variant compiles without Node.js, without Wails and without a webview. |
 
 ## The data flow of an audit
 
@@ -93,6 +153,35 @@ codixai audit --diff --worktree
 The policy is applied after the analysis on purpose: the analyzer knows the
 rules and the policy knows the decisions of the repository.
 
+## The data flow of a verification
+
+```text
+codixai verify --base <ref> --claims claims.json
+  |
+  1. cli.runVerify
+  |     rejects a missing --base or --claims with the invalid arguments code,
+  |     resolves the root and checks that the root is a Git repository
+  |
+  2. application.RunVerify
+  |     loads the policy of the repository (.codixai.yml, or the defaults)
+  |     loads the claim file and checks that its base is the base of the
+  |     comparison
+  |     asks the ChangeSource for the changes and for the head
+  |
+  3. claims.Evaluator
+  |     for every claim: computes the state from the changed files, from the
+  |     manifests of the root and from the external report
+  |     sorts the results by the identifier of the claim
+  |
+  4. cli.writeVerifyReport or the JSON encoder
+        writes the versioned document to the standard output, the diagnostics
+        to the standard error, and returns the exit code
+```
+
+The evaluator never executes anything: it reads the manifests and the
+reports of the analyzed repository as text. A report is external evidence
+and the evidence of the result says so.
+
 ## The domain model
 
 The models live in `internal/domain`. The ones that matter in this milestone:
@@ -114,8 +203,9 @@ The models live in `internal/domain`. The ones that matter in this milestone:
 - **`ChangeSet` and `FileChange`** — the changes of a repository, with the
   hunks and the lines of every file.
 - **`Claim` and `ClaimResult`** — the model of the verification contract of
-  Phase 2. The types exist in the domain model; the `verify` command does not
-  exist yet.
+  Phase 2: the assertion, its state (`verified`, `contradicted` or
+  `unresolved`), the message that says what was observed, the evidence and
+  the limitations of the check.
 - **`Relation`** — a link between symbols or files, with its method and its
   resolution.
 
@@ -206,9 +296,26 @@ language that has no positive and negative fixtures.
   lines.
 - **There is no index.** The audit compares the blobs that Git already
   holds; it does not build a structure of the repository.
+- **Two claim types can never be decided.** `api_unchanged` and
+  `behavior_preserved` are always `unresolved`: the public API is not
+  extracted yet, and static analysis does not decide the behavior of a
+  change. The catalog keeps them because the decision 0007 declares them.
+- **A report is only used when it declares the revision.** A `tests_passed`
+  claim needs a JUnit XML or a `go test -json` report linked to the head of
+  the compared range, either through the `report_revision` of the claim or
+  through the revision the report declares. Otherwise the claim is
+  `unresolved`. Codixai never runs the tests of the repository.
+- **The claims ignore the excluded paths.** The `scope` and the
+  `files_unchanged` claims are checked against the whole compared range: the
+  paths that the configuration excludes from the analysis are not excluded
+  from the claims.
 - **The presentation layer is minimal.** It has a centralized renderer, a
   table, a plain mode and the `NO_COLOR` support, and nothing else. The
   specification allows this minimum in Phase 1.
+- **There is no graphical interface.** The Wails adapter, the Svelte frontend
+  and the `codixai ui` command belong to Phase 7 and do not exist. The
+  requirements of the section 8.7 of the specification are met today, and
+  the architecture test protects them.
 - **The parsing strategy is not settled.** See
   [`docs/decisions/0001-parsing-strategy-for-multiple-languages.md`](../decisions/0001-parsing-strategy-for-multiple-languages.md):
   the decision is blocked, and the cross-platform build evidence that the

@@ -21,11 +21,17 @@ If `$ARGUMENTS` is empty, review the whole working tree change.
 5. **Check the change** against:
    - the scope of the task: anything outside it is a finding;
    - the layer boundaries: `internal/domain` imports nothing, the
-     application declares the ports, the providers implement them;
+     application declares the ports, the providers implement them, and the
+     application layer imports neither the command line nor the user
+     interface nor a desktop toolkit;
    - the output contract: `schema_version`, a clean standard output, the
      documented exit codes;
    - the epistemic status: a heuristic is never presented as a confirmed
-     bug;
+     bug, and a claim that cannot be decided is `unresolved`, never
+     `verified`;
+   - the claim contract: an unknown type is an error, a report that cannot
+     be linked to the revision leaves the claim `unresolved`, and Codixai
+     never runs the tests of the analyzed repository;
    - the support matrix: a rule may only claim a language that has positive
      and negative fixtures;
    - the invariants of not executing the analyzed repository, of no
@@ -42,3 +48,8 @@ confirmed problems from the open questions.
 
 State explicitly what was **not** verified. Never claim that a test passed
 without having run it.
+
+A change of the graphical interface (Phase 7) is reviewed against the rules
+of the section 17.9 of the specification: one version of Wails only, no
+import of Wails in the domain nor in the application, generated types in the
+frontend, no `{@html}`, and `npm ci` for the dependencies of the frontend.

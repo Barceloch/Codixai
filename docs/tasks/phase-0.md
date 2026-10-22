@@ -22,11 +22,19 @@ Creating empty directories is not enough.
 | P0-08 | Documentation and ADRs | DONE |
 | P0-09 | Continuous integration | PARTIAL |
 | P0-10 | Agent context package | DONE |
+| P0-11 | Parsing strategy ADR | PENDING / blocked |
+| P0-12 | Module path, repository URL and license | DONE |
+| P0-13 | The architecture test of the application layer | DONE |
 
 One item is not fully closed and is stated as such: the parsing strategy
 ADR is **blocked** (P0-11 below). The module path, the repository URL and
 the license (the MIT License) were confirmed by the maintainer on 2026-10-20
 and applied.
+
+P0-13 holds the requirement 8.7.1 of the specification: the application
+layer does not depend on the presentation, and an architecture test
+verifies it. It holds from the first phase, before the graphical interface
+of Phase 7 exists.
 
 ---
 
@@ -449,3 +457,41 @@ belongs to the same decision list.
 
 **Out of scope**
 Publishing a release.
+
+---
+
+### P0-13 — The architecture test of the application layer
+
+- Status: **DONE**
+- Depends on: P0-01, P0-10
+
+**Objective**
+Verify, from the first phase, that the application layer depends on neither
+the command line nor the user interface nor a desktop toolkit, and that the
+domain depends on nothing of the project. The requirement is the 8.7.1 of
+the specification, and it holds before the graphical interface of Phase 7
+exists.
+
+**Sections to read**
+7.1, 8.7.1.
+
+**Deliverables**
+- `internal/application/architecture_test.go`: the test parses the imports of
+  the files of `internal/application` and of `internal/domain` and fails on
+  a forbidden one.
+- `TestApplicationDoesNotDependOnThePresentation`: the application layer
+  imports neither `internal/cli`, nor `internal/ui`, nor `cmd`, nor
+  `github.com/wailsapp/wails`.
+- `TestDomainImportsNothingOfTheProject`: the domain imports no package of
+  the project.
+
+**Acceptance checks**
+```bash
+go test ./internal/application/ -run TestApplicationDoesNotDependOnThePresentation
+go test ./internal/application/ -run TestDomainImportsNothingOfTheProject
+```
+
+**Out of scope**
+The user interface itself, which belongs to Phase 7 and does not exist. The
+test forbids an import of a package that does not exist yet, so it does not
+need it to be written.

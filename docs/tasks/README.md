@@ -6,6 +6,8 @@ atomic steps and their acceptance checks.
 
 - [Phase 0 — Executable foundations](phase-0.md)
 - [Phase 1 — The diff verifier spike](phase-1.md)
+- [Phase 2 — Claims, evidence and the verification contract](phase-2.md)
+- [Phase 7 — The local graphical interface](phase-7.md)
 
 ## The format of a task
 

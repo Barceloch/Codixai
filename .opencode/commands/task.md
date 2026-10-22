@@ -23,15 +23,23 @@ If `$ARGUMENTS` is empty, ask which task has to be executed and stop.
 7. **State the plan**: the files to touch, the checks to run, and what is
    explicitly out of scope.
 
+For a task of the graphical interface (Phase 7), load the skill `wails` of
+this repository before writing any code, and follow the rules of the
+section 17.9 of the specification.
+
 ## Stop conditions
 
 Stop and ask, instead of choosing, when the task depends on a pending
-decision (the license, the security contact, the supported platforms, the
-minimum Go version, the CI platform, the report formats), when the
-specification and the task contradict each other, when a
-new dependency or an access to the network would be needed, when the change
-would modify `schema_version` or another fixed contract, or when something
-cannot be verified in this environment.
+decision (the security contact, the supported platforms, the minimum Go
+version, the CI platform, the report formats, the version of Wails, the
+languages of the interface), when the specification and the task contradict
+each other, when a new dependency or an access to the network would be
+needed, when the change would modify `schema_version` or another fixed
+contract, or when something cannot be verified in this environment.
+
+A task of the graphical interface that requires choosing the version of
+Wails, adding an npm dependency or changing the distribution policy stops
+and asks as well.
 
 ## Rules
 

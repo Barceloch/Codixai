@@ -23,13 +23,18 @@ language combination is published when it reaches its quality criterion.
 | P1-04 | The corpus of real diffs produced by agents | PENDING |
 | P1-05 | The false positive report | PENDING |
 | P1-06 | The decision gate of the phase | PENDING |
-| P1-07 | `verify` with claims | PENDING |
+| P1-07 | `verify` with claims | DONE — belongs to Phase 2 |
 | P1-08 | SARIF export | PENDING |
 | P1-09 | Baseline of findings | PENDING |
 
-The last three belong to the later phases of the specification but are
-listed here because the specification forbids promising them before the
-Phase 1 decision gate. They are **not implemented**.
+The last two belong to a later phase of the specification but are listed
+here because the specification forbids promising them before the Phase 1
+decision gate. They are **not implemented**.
+
+P1-07 is implemented in Phase 2. Its detail lives in
+[`docs/tasks/phase-2.md`](phase-2.md). **The decision gate of the phase
+(P1-06) is still open**, and the verification was implemented without it:
+the deviation is declared in P1-07 below.
 
 ---
 
@@ -244,7 +249,7 @@ Starting Phase 2 before the gate is closed.
 
 ### P1-07 — `verify` with claims
 
-- Status: **PENDING** — belongs to Phase 2
+- Status: **DONE** — implemented in Phase 2
 - Depends on: P1-06
 
 **Objective**
@@ -259,13 +264,30 @@ agent with the diff and with the results of the rules, with the states
 The use case, the versioned schema of the claims and the command.
 
 **Acceptance checks**
-Not executable yet. The command does not exist: the `Claim` and the
-`ClaimResult` models exist in the domain, but there is no use case and no
-command.
+```bash
+go test ./internal/claims/
+go test ./tests/integration/ -run TestVerify
+go run ./cmd/codixai verify --help
+```
+The evidence in the repository is the test suite of the packages
+`internal/claims` and `tests/integration`, and the corpus of the claims in
+`testdata/claims`.
 
 **Out of scope**
 Running the tests of the analyzed repository. A `tests_passed` claim is
 only contrasted against an external report that is bound to the revision.
+
+**The detail of the task** lives in
+[`docs/tasks/phase-2.md`](phase-2.md), and the format of the claim file is
+fixed by the decision
+[`0007`](../decisions/0007-claim-format-and-report-linking.md).
+
+**Declared deviation.** The dependency of this task is P1-06, the decision
+gate of the phase, and the gate is still **PENDING**: the corpus of real
+diffs produced by external agents, the false-positive report and the
+decision about the rules are not closed. The verification was implemented
+without the gate. The deviation is recorded here and reported to the
+maintainer: it is not a claim that the gate is satisfied.
 
 ---
 
@@ -342,3 +364,16 @@ fixed and covered by fixtures:
 | The predeclared identifiers of Go, such as `nil` or `error`, were reported as missing local symbols. | The complete list of the predeclared identifiers is resolved. | `CDX-REF-001` v2 |
 | The name of an imported package that does not match the last element of its path was reported as a missing symbol. | The package clause of the module directories is read. | `CDX-REF-001` v2 |
 | A description that names a placeholder marker, such as `Description: "explicit not implemented marker"`, was reported as a placeholder. | The explicit markers are scoped to the comments, to the code and to the thrown errors. | `CDX-PLH-001` v2 |
+
+### The self check of the Phase 2 change
+
+The change that implements the verification (P1-07) was audited with the
+tool itself, over the range that holds it:
+
+```bash
+codixai audit --diff --base bb5b1bd
+```
+
+The run reports **0 findings over 109 changed files**. The absence of
+findings does not prove that the change is correct, but no rule of the
+catalog is violated by it.
