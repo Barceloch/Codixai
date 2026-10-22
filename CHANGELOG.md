@@ -66,8 +66,9 @@ branch.
   writes outside of it.
 - **Documentation**: the README, the contributing guide, the code of conduct,
   the security policy, the changelog, the architecture overview, the
-  implementation conventions, the task format with the Phase 0, Phase 1,
-  Phase 2 and Phase 7 task lists, and seven architecture decision records.
+  implementation conventions, the CI integration guide, the task format with
+  the Phase 0, Phase 1, Phase 2, Phase 3 and Phase 7 task lists, and ten
+  architecture decision records.
 - **Agent context package**: `AGENTS.md`, `opencode.json`, the read-only
   `codixai-reviewer` subagent and the `/task` and `/review` commands.
 - **CI** in `.github/workflows/ci.yml`: a formatting job, `go vet`,
@@ -116,6 +117,54 @@ branch.
   package of the project. It is the requirement 8.7.1 of the specification,
   and it holds from the first phase.
 
+### Added — Phase 3, the baseline and the SARIF export
+
+- **The stable fingerprint of a finding** in `internal/baseline`: the first 16
+  hexadecimal characters of
+  `sha256(rule_id + 0x00 + path + 0x00 + normalized_context)`. The context is
+  the text of the line the finding points at, taken from the diff, with the
+  leading and the trailing spaces removed and every run of internal whitespace
+  collapsed into a single space. The new side of the diff is read first and
+  the old side only for a removed line. The line number is never part of the
+  identity, so the baseline survives the movement of the code.
+- **The versioned baseline** in `internal/baseline`: its own `schema_version`
+  (`0.1`), `created_at`, `tool_version` and the findings sorted by their
+  fingerprint. A missing file is an empty baseline; a malformed document, an
+  unsupported version and an entry without an identity are errors that name
+  the file, the line and the way to recover. A path that escapes the root of
+  the repository is rejected.
+- **The baseline in the audit**: the audit reads the baseline of the
+  `audit.baseline` key of the configuration (`.codixai/baseline.json` by
+  default), removes the findings it knows and fails only on the new ones. The
+  count of the known findings is a diagnostic of the standard error. **The
+  document of the audit keeps `schema_version` `0.1`**: the known findings are
+  not part of it.
+- **`codixai baseline create`**: it records the findings of a compared range in
+  the versioned file of the repository. One origin (`--base`, `--staged` or
+  `--worktree`), `--out <path>`, and `--force` to replace an existing
+  baseline, which is never replaced silently. The baseline that is being
+  created is never applied to the run that creates it.
+- **`codixai report`** and **the SARIF 2.1.0 export** in `internal/report`:
+  one run, the driver `codixai`, the rules of the catalog sorted by identifier
+  and one result per new finding. The severity mapping is `error` → `error`,
+  `warning` → `warning`, `info` → `note`, and a severity outside the catalog
+  becomes `none`. The fingerprint of the baseline travels in
+  `partialFingerprints["codixaiFingerprint/v1"]` and the findings that the
+  baseline knows are counted in `runs[].properties.suppressedByBaseline`.
+  `--format sarif` is the default of the command and `--format json` writes
+  the audit document, byte for byte. The command shares the exit code of the
+  audit.
+- **The CI integration guide** in
+  [`docs/guides/ci-integration.md`](docs/guides/ci-integration.md): the origin
+  flag, the exit codes, the baseline workflow and the import of the SARIF
+  document.
+- **Three architecture decision records**:
+  [`0008`](docs/decisions/0008-baseline-and-fingerprint.md) (the baseline and
+  the fingerprint), [`0009`](docs/decisions/0009-sarif-export.md) (the SARIF
+  export) and
+  [`0010`](docs/decisions/0010-distribution-policy-of-the-variants.md) (the
+  distribution policy of the variants).
+
 ### Changed
 
 - **The specification is adopted in its version 0.6.0.** It adds the local
@@ -129,6 +178,14 @@ branch.
   verbatim text.
 - **The module path is `github.com/barceloch/codixai`**, in lower case, and
   the repository is `https://github.com/Barceloch/Codixai`.
+- **The distribution policy of the variants is fixed** by the decision
+  [`0010`](docs/decisions/0010-distribution-policy-of-the-variants.md): the
+  published artifact is a single binary that holds the CLI and the graphical
+  interface, built with the `ui` tag, while the CLI only build stays the
+  default of `go build` and of `go install`. The decision is provisional on
+  the measurement of the size and the startup time of the combined binary,
+  and the supported platforms of the variant with the interface are still
+  pending. Nothing of the interface is published yet.
 
 ### Known limitations
 
@@ -148,7 +205,18 @@ branch.
   change does not touch is out of scope.
 - There is no persistent index, no symbol graph, no `index`, `status`,
   `overview`, `find`, `refs` or `deps` command.
-- There is no SARIF export, no baseline support and no MCP server.
+- The baseline is one versioned file of the repository: there is no baseline
+  per origin, no remote baseline and no `baseline show`, `prune` or `update`
+  command. A finding whose line is not part of the compared range is
+  identified by the rule and the path only, which is coarser than the
+  identity of a finding with a context.
+- The SARIF document is structurally conformant to SARIF 2.1.0 and it is not
+  validated against the official JSON schema: the environment has no network
+  access to fetch it. No import into a code scanning platform was exercised.
+- The rule catalog publishes no human readable name, so the SARIF descriptors
+  carry the rule identifier in `name` and the same text in
+  `shortDescription` and `fullDescription`.
+- There is no MCP server.
 - The `api_unchanged` and the `behavior_preserved` claims are always
   `unresolved`: the public API is not extracted yet, and static analysis does
   not decide the behavior of a change. They are part of the catalog on

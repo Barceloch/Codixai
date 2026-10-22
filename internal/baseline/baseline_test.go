@@ -325,7 +325,7 @@ func TestSaveRejectsAnotherSchemaVersion(t *testing.T) {
 	}
 }
 
-func TestKnowsRequiresAnIdentifiableContext(t *testing.T) {
+func TestKnowsMatchesTheRecordedContext(t *testing.T) {
 	changes := changeset("app.py", added(3, "    return value  # noqa"))
 	recorded := finding("CDX-SUP-001", "app.py", 3)
 	file := &File{
@@ -337,11 +337,22 @@ func TestKnowsRequiresAnIdentifiableContext(t *testing.T) {
 		t.Error("the baseline does not know the finding it recorded")
 	}
 
-	// The same rule and path, but the line is not in the diff: the
-	// baseline must not hide a finding it cannot identify.
-	unidentifiable := finding("CDX-SUP-001", "app.py", 40)
-	if file.Knows(changes, unidentifiable) {
-		t.Error("the baseline hides a finding without a context")
+	// A rule and a path without a context in the diff are still an
+	// identity: the baseline recognizes them while they do not change.
+	withoutContext := finding("CDX-SUP-001", "app.py", 40)
+	emptyChanges := &domain.ChangeSet{}
+	emptyFile := &File{
+		SchemaVersion: SchemaVersion,
+		Findings:      Entries([]domain.Finding{withoutContext}, emptyChanges),
+	}
+	if !emptyFile.Knows(emptyChanges, withoutContext) {
+		t.Error("the baseline does not recognize the finding it recorded without a context")
+	}
+
+	// The same rule and path, but this finding has a context while the
+	// recorded one has none: the identities are different.
+	if file.Knows(emptyChanges, withoutContext) {
+		t.Error("the baseline matches a finding with a context against an entry without one")
 	}
 
 	// The same line with another content: a different finding.

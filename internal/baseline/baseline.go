@@ -11,9 +11,10 @@
 // of the identity, so a baseline survives the movement of the code, which is
 // the normal case in a repository with activity.
 //
-// A finding whose line is not part of the compared range cannot be
-// identified: its context is empty and it is never hidden by a baseline. A
-// baseline never hides what it cannot recognize.
+// A finding whose line is not part of the compared range still has a
+// fingerprint: the rule and the path identify it, so the baseline recognizes
+// it while they do not change. The identity is coarser than the one of a
+// finding with context, and it is reviewable in the baseline file.
 //
 // The format of the file and the behavior of the audit are fixed by the
 // decision 0008, in docs/decisions/0008-baseline-and-fingerprint.md.

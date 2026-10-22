@@ -88,13 +88,25 @@ the section 17.4.8 makes the agent stop and ask:
   addition to the native window) and its security controls. The decision is
   taken in P7-05.
 - **Decision 13 — the distribution policy** of the variant with the
-  interface (a single binary with the CLI and the interface, against the
-  CLI only as the default) and the platforms it supports.
+  interface. **Resolved** by the decision
+  [`0010`](../decisions/0010-distribution-policy-of-the-variants.md): the
+  published artifact is a single binary that holds the CLI and the graphical
+  interface, built with the `ui` tag; the CLI only build stays the default of
+  `go build` and of `go install` and is not published as a separate artifact.
+  **The platforms that the variant with the interface supports are still
+  pending**: the decision 0010 fixes the policy and not the matrix of the
+  supported platforms, which still has to be confirmed before the release.
 - **Decision 14 — the languages of the interface** (Spanish, English) and
   the translation policy.
 
 **Stop and ask** when a task of this phase requires choosing the version of
-Wails, adding an npm dependency or changing the distribution policy.
+Wails, adding an npm dependency or changing the distribution policy. The
+distribution policy itself is no longer an open choice: the decision
+[`0010`](../decisions/0010-distribution-policy-of-the-variants.md) fixes it,
+and the tasks of this file follow it. The platforms of the variant with the
+interface, the requirements of the system per platform and the size and the
+startup time of the combined binary are still pending, and they are what the
+spike 7.0 has to measure.
 
 ---
 
@@ -129,8 +141,11 @@ environment does not have: the verification of the window is a manual one
 and it is declared as such.
 
 **Out of scope**
-The screens of 7.1, the server mode of P7-05 and the distribution policy of
-the decision 13.
+The screens of 7.1, the server mode of P7-05 and the platforms of the
+variant with the interface. The distribution policy itself is fixed by the
+decision
+[`0010`](../decisions/0010-distribution-policy-of-the-variants.md) and is
+not a choice of this task.
 
 ---
 
@@ -161,7 +176,11 @@ The builds of macOS and Windows run in the CI. **A declared job is not
 evidence**: the results have to be observed before the phase can be closed.
 
 **Out of scope**
-The publishing of the releases, which belongs to Phase 3.
+The publishing of the releases, which depends on the variant with the
+interface that this phase produces: the decision
+[`0010`](../decisions/0010-distribution-policy-of-the-variants.md) publishes
+one binary per platform, built with the `ui` tag, and it cannot be published
+before that binary exists.
 
 ---
 
@@ -203,6 +222,12 @@ The `codixai ui` command of the variant with the interface.
 **Objective**
 Measure the size of the binary and the time of the startup of both
 variants, and publish the numbers with the command that reproduces them.
+
+The measurement is what keeps the decision
+[`0010`](../decisions/0010-distribution-policy-of-the-variants.md)
+provisional: the published artifact is a single binary with the CLI and the
+interface, and a measurement that shows it is not viable revises the decision
+with another ADR.
 
 **Sections to read**
 14 (Phase 7, spike 7.0), 15.

@@ -15,12 +15,14 @@ package manager and never accesses the network.**
 ## Status
 
 **Experimental. This repository is at the Phase 0 / Phase 1 milestone, plus
-the verification of claims of Phase 2. It is not a finished product.**
+the verification of claims of Phase 2 and the CI adoption of Phase 3. It is
+not a finished product.**
 
 What exists today:
 
 - a Go module named `github.com/barceloch/codixai` that builds a single binary;
-- a CLI with the commands `audit`, `verify`, `init`, `version` and `help`;
+- a CLI with the commands `audit`, `report`, `baseline create`, `verify`,
+  `init`, `version` and `help`;
 - a read-only Git integration with hardened invocation;
 - a configuration file loader for `.codixai.yml`;
 - six deterministic rules over five languages (Go, Python, PHP, JavaScript,
@@ -32,13 +34,18 @@ What exists today:
   `contradicted` or `unresolved`;
 - the claim contract of the decision
   [`0007`](docs/decisions/0007-claim-format-and-report-linking.md), with a
-  corpus of cases in `testdata/claims`.
+  corpus of cases in `testdata/claims`;
+- a versioned baseline of the findings of a repository, with a stable
+  fingerprint that survives the movement of the code, and the
+  `baseline create` command that writes it;
+- the `report` command and the SARIF 2.1.0 export of the new findings, with
+  the fingerprint of the baseline in `partialFingerprints`.
 
 What does **not** exist today:
 
 - no persistent index, no symbol graph, no `index`, `status`, `overview`,
   `find`, `refs` or `deps` commands;
-- no SARIF export, no baseline file support, no MCP server;
+- no MCP server;
 - no semantic resolution: every rule is at most `syntactic`;
 - no graphical interface, no `codixai ui` command and no `ui` build variant;
 - no verification of the behavior of a change: the `api_unchanged` and the
@@ -150,6 +157,8 @@ codixai audit --diff --base main      # commits between the base and HEAD
 codixai audit --diff --staged         # the staging area
 codixai audit --rules                 # print the rule catalog and its support matrix
 codixai --format json audit --diff --worktree   # a machine readable document
+codixai report --format sarif --base main        # the SARIF document of the same run
+codixai baseline create --base main   # record the current findings in the baseline
 codixai init                          # create .codixai.yml in the repository root
 codixai version
 ```
@@ -243,6 +252,115 @@ The format of the claim file, the catalog of the types and the linking of a
 report are fixed by the decision
 [`0007`](docs/decisions/0007-claim-format-and-report-linking.md).
 
+### The baseline of findings
+
+A baseline is a versioned file of the analyzed repository that records the
+findings the repository already has. It lets a pipeline fail on the new
+findings without turning the existing debt into constant noise.
+
+```bash
+codixai baseline create --base main
+```
+
+The file is written at the `audit.baseline` key of the configuration, which
+defaults to `.codixai/baseline.json`; `--out <path>` writes another one. The
+command needs exactly one origin (`--base`, `--staged` or `--worktree`), the
+same three as the audit, and it never replaces an existing baseline without
+`--force`. The baseline that is being created is never applied to the run
+that creates it.
+
+The file has its own `schema_version` (`0.1`) and this shape (the values below
+are illustrative, the structure is the real one):
+
+```json
+{
+  "schema_version": "0.1",
+  "created_at": "2026-10-22T10:00:00Z",
+  "tool_version": "0.1.0",
+  "findings": [
+    {
+      "fingerprint": "3f2a91c0d4b7e815",
+      "rule_id": "CDX-SUP-001",
+      "path": "internal/payment/service.go",
+      "line": 41,
+      "severity": "warning",
+      "message": "The change adds an analyzer suppression."
+    }
+  ]
+}
+```
+
+The findings are sorted by their fingerprint, so the file is stable and its
+diffs are readable. The line, the severity and the message are informative:
+they are not part of the identity of the finding.
+
+**The identity is the fingerprint**: the first 16 hexadecimal characters of
+`sha256(rule_id + 0x00 + path + 0x00 + normalized_context)`, where the context
+is the text of the line the finding points at, taken from the diff, with the
+leading and the trailing spaces removed and every run of internal whitespace
+collapsed into a single space. The line number is never part of it, so a
+finding that moves down a file stays known; it changes when the code of the
+line really changes, so a finding that was fixed and reintroduced is new and
+has to be reviewed again. When the line is not part of the compared range the
+context is empty and the identity is the rule and the path.
+
+The audit reads the baseline, removes the findings it knows and fails only on
+the new ones. The standard output keeps holding only the document of the new
+findings; the count of the known findings is a diagnostic of the standard
+error:
+
+```text
+codixai: 2 finding(s) known by the baseline, not reported
+```
+
+**Commit the baseline and review it when it changes.** An entry that appears
+is a finding that was accepted into the debt; an entry that disappears is a
+finding that is not reported anymore. Both are decisions about the repository
+and belong in the review of the change. The format, the identity and the
+behavior of the audit are fixed by the decision
+[`0008`](docs/decisions/0008-baseline-and-fingerprint.md).
+
+### The SARIF export
+
+`codixai report` writes the machine readable document of the same run that the
+audit reports:
+
+```bash
+codixai report --format sarif --base main
+```
+
+`--format sarif` is the default of the command; `--format json` writes the
+audit document instead, byte for byte the one that `codixai audit --format
+json` writes. The command needs one origin, like the audit, and it shares the
+exit code of the audit: `3` when a new finding reaches the `fail_on`
+threshold.
+
+The document is SARIF 2.1.0, with one run and the driver `codixai`:
+
+- the rules of the catalog, sorted by identifier, with their description,
+  their default level and their support;
+- one result per new finding, with the rule and its index, the level, the
+  message, the repository relative location and the line range;
+- the severity mapping `error` → `error`, `warning` → `warning`, `info` →
+  `note`; a severity outside the catalog becomes `none`, which is how SARIF
+  says that a result fails nothing;
+- `partialFingerprints["codixaiFingerprint/v1"]`: the fingerprint of the
+  baseline, so a platform that suppresses a known result and a pipeline that
+  applies a baseline use the same identity;
+- `runs[].properties.suppressedByBaseline`: the count of the findings that the
+  baseline knows. They are not results, because they are not new.
+
+**The document is structurally conformant to SARIF 2.1.0 and it has not been
+validated against the official JSON schema**, because the development
+environment has no network access to fetch it. The tests validate the
+structure that the decision
+[`0009`](docs/decisions/0009-sarif-export.md) fixes. Confirm the import once
+on your platform before you make the step blocking.
+
+The pipeline workflow — the origin flag, the exit codes, the baseline and the
+import of the SARIF document — is described in
+[`docs/guides/ci-integration.md`](docs/guides/ci-integration.md).
+
 ### Exit codes
 
 | Code | Meaning |
@@ -251,6 +369,10 @@ report are fixed by the decision
 | `1` | Execution or configuration error. |
 | `2` | Invalid arguments. |
 | `3` | The audit completed and its findings reach the configured `fail_on` threshold, or a claim of the verification is `contradicted`. |
+
+The `report` command shares the codes of the audit: it is the same run with a
+machine readable document. A refused replacement of an existing baseline
+without `--force` is an execution error (`1`), not an invalid invocation.
 
 The default `audit.fail_on` is `error`. A `verify` run fails with code `3`
 when a claim is `contradicted`; an `unresolved` claim only fails when the
@@ -270,11 +392,11 @@ use the built binary when you need to observe code `3` in a script.
 ```text
 codixai <command> [flags]
 
-commands: audit, verify, init, version, help
+commands: audit, report, baseline create, verify, init, version, help
 
 global flags:
   --root <value>    Root of the analyzed repository. Defaults to the current directory.
-  --format <value>  Output format: text or json.
+  --format <value>  Output format: text or json, or sarif for the report command.
   --no-color        Disable the color output.
   --plain           Print the output without decoration.
   --version         Print the version of the tool and exit.
@@ -286,6 +408,18 @@ audit flags:
   --worktree        Audit the changes that are not committed yet.
   --rules           Print the rule catalog and exit.
 
+report flags:
+  --base <value>    Base revision to compare the repository with HEAD.
+  --staged          Report the findings of the staging area.
+  --worktree        Report the findings that are not committed yet.
+
+baseline create flags:
+  --base <value>    Base revision to compare the repository with HEAD.
+  --staged          Record the findings of the staging area.
+  --worktree        Record the findings that are not committed yet.
+  --out <value>     Path of the baseline file to write. Defaults to the audit.baseline key.
+  --force           Replace an existing baseline file.
+
 verify flags:
   --base <value>    Base revision to compare the repository with HEAD. Required.
   --claims <value>  Path of the claim file to verify. Required.
@@ -294,9 +428,10 @@ init flags:
   --force           Replace an existing configuration file.
 ```
 
-Exactly one audit origin must be selected: `--base`, `--staged` or
-`--worktree`. The `verify` command needs both `--base` and `--claims`; a
-missing one is an invalid invocation and the exit code is `2`.
+Exactly one origin must be selected by `audit`, `report` and `baseline
+create`: `--base`, `--staged` or `--worktree`. The `verify` command needs both
+`--base` and `--claims`; a missing one is an invalid invocation and the exit
+code is `2`.
 
 ## Rule catalog
 
@@ -370,8 +505,21 @@ the roadmap:
   `files_unchanged` claims are checked against the whole compared range: a
   path that the configuration excludes from the analysis is not excluded
   from the claims.
-- **No MCP, no SARIF, no baseline.** Those are planned for later phases and
-  are not implemented.
+- **The baseline is one versioned file of the repository.** There is no
+  baseline per origin, no remote baseline and no `baseline show`, `prune` or
+  `update` command. A baseline that is not committed is not shared by the
+  pipeline. A finding whose line is not part of the compared range is
+  identified by the rule and the path only, which is coarser than the
+  identity of a finding with a context.
+- **The SARIF export is not validated against the official JSON schema.**
+  The document is structurally conformant to SARIF 2.1.0 and the structure is
+  validated by the tests, but the environment has no network access to fetch
+  the schema. No import into a code scanning platform was exercised; confirm
+  it once on your platform.
+- **The rule catalog publishes no human readable name**, so the SARIF
+  descriptors carry the rule identifier in `name` and the description in both
+  `shortDescription` and `fullDescription`.
+- **No MCP server.** It belongs to Phase 4 and it is not implemented.
 - **No graphical interface.** The `codixai ui` command, the Wails adapter
   and the Svelte frontend belong to Phase 7 and do not exist. The
   architecture that would allow them is already in place and is verified by
@@ -395,7 +543,7 @@ The phases follow the product specification
 | 0 | Executable foundations and technical decisions | In progress, mostly done |
 | 1 | The diff verifier spike: the six rules over five languages | In progress, partially done |
 | 2 | Claims, evidence and the verification contract | Implemented: the `verify` command, the claim contract and the corpus |
-| 3 | CI adoption: SARIF export and a versioned baseline | Not started |
+| 3 | CI adoption: SARIF export and a versioned baseline | Implemented: the stable fingerprint, the baseline, the `report` command and the SARIF 2.1.0 export |
 | 4 | First agent integrations and MCP | Not started |
 | 5 | Structural analysis and impact on demand | Not started |
 | 6 | Wider rules and semantic analysis | Not started |
@@ -410,6 +558,16 @@ Phase 2 is implemented, with the exceptions that the decision
 on purpose: the `api_unchanged` and the `behavior_preserved` claims are
 always `unresolved`.
 
+Phase 3 is implemented: the stable fingerprint, the versioned baseline, the
+`baseline create` command, the SARIF 2.1.0 export and the `report` command
+exist, with the decisions
+[`0008`](docs/decisions/0008-baseline-and-fingerprint.md) and
+[`0009`](docs/decisions/0009-sarif-export.md). Two parts of its exit
+criterion are not verified: the document is not validated against the
+official JSON schema of SARIF, and no import into a hosted code scanning
+platform was exercised. The workflow is described in
+[`docs/guides/ci-integration.md`](docs/guides/ci-integration.md).
+
 Phase 7 is the local graphical interface: a native window built with Wails
 and a frontend built with Svelte, Tailwind and daisyUI, launched with
 `codixai ui` and shipped in the same binary as the CLI. Its spike 7.0
@@ -422,9 +580,11 @@ packaging and not in the screens. None of it exists today.
 - [Product specification (v0.6.0)](docs/spec/CODIXAI_SPEC.md)
 - [Architecture overview](docs/architecture/overview.md)
 - [Implementation conventions](docs/guides/implementation-conventions.md)
+- [CI integration](docs/guides/ci-integration.md)
 - [Task format and result report](docs/tasks/README.md)
 - [Phase 0 tasks](docs/tasks/phase-0.md), [Phase 1 tasks](docs/tasks/phase-1.md),
-  [Phase 2 tasks](docs/tasks/phase-2.md) and
+  [Phase 2 tasks](docs/tasks/phase-2.md),
+  [Phase 3 tasks](docs/tasks/phase-3.md) and
   [Phase 7 tasks](docs/tasks/phase-7.md)
 - [Architecture decision records](docs/decisions/)
 - [Contributing](CONTRIBUTING.md)
