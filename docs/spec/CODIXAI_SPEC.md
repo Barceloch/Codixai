@@ -1,11 +1,11 @@
 # Codixai — Especificación técnica del proyecto
 
 > **Estado:** especificación fundacional  
-> **Versión:** 0.5.0  
+> **Versión:** 0.6.0  
 > **Nombre del proyecto:** Codixai  
 > **Nombre del ejecutable:** `codixai`  
 > **Idioma principal de la documentación:** inglés técnico, con documentación inicial en español si ayuda a la comunidad objetivo  
-> **Licencia propuesta:** Apache-2.0, pendiente de confirmar antes de publicar  
+> **Licencia:** MIT, confirmada por el mantenedor el 2026-10-20  
 > **Objetivo:** construir una herramienta local-first para comprender, explorar y auditar repositorios de software, especialmente código creado o modificado con asistencia de IA.
 
 ---
@@ -47,7 +47,7 @@ Codixai es una herramienta de inteligencia de código cuyo primer punto de entra
 - revisar cambios propuestos por agentes de IA;
 - obtener resultados verificables, enlazados al código real;
 - integrar estas capacidades en agentes como OpenCode y Gentle-Shell;
-- evolucionar posteriormente hacia una aplicación web con mapas, grafos y diagramas interactivos.
+- evolucionar posteriormente hacia una interfaz gráfica local, integrada en el mismo código y lanzable con `codixai ui`, con mapas, grafos y diagramas interactivos.
 
 **Principio rector:** Codixai no es un chatbot que adivina cómo funciona un repositorio ni un simple generador de grafos. Es un verificador local-first del trabajo realizado por agentes de IA: contrasta diffs y afirmaciones con evidencia reproducible, señala riesgos y deja claro qué pudo comprobar y qué sigue sin resolver. El análisis estructural es una capacidad habilitadora que se amplía según las necesidades verificables del producto.
 
@@ -96,7 +96,8 @@ La ventaja competitiva debe surgir de la combinación de evidencia, impacto, con
 - Integración de primera clase con OpenCode y Gentle-Shell mediante mecanismos públicos verificados.
 - Salida SARIF, baseline de hallazgos y flujos CI.
 - Selección probable de pruebas según el impacto de cambios.
-- Servidor local/API para clientes externos y una futura web.
+- Interfaz gráfica local integrada en el mismo código (Wails, Svelte y daisyUI), lanzable con `codixai ui` (sección 8).
+- Servidor local/API para clientes externos, solo si un caso de uso lo justifica.
 - Visualización de grafos de dependencias, mapas de módulos y flujos de ejecución.
 - Resolución semántica ampliada mediante LSP y herramientas propias de cada lenguaje.
 - Explicaciones opcionales con proveedores de IA locales o remotos.
@@ -104,7 +105,7 @@ La ventaja competitiva debe surgir de la combinación de evidencia, impacto, con
 
 ### 2.3 No objetivos del MVP
 
-- No construir todavía una aplicación web.
+- No construir todavía la interfaz gráfica (sección 8, Fase 7); sí mantener desde el inicio la arquitectura que permita añadirla sin reescribir el análisis.
 - No modificar ni refactorizar automáticamente el repositorio analizado.
 - No afirmar que el análisis estático reconstruye todos los flujos dinámicos.
 - No exigir una API, cuenta remota, base de datos de servidor o modelo de IA.
@@ -189,6 +190,7 @@ La documentación y la salida deben indicar las limitaciones. La ausencia de una
 - **Bubbles (Charm):** componentes de progreso y spinner cuando aporten valor; incorporar solo los componentes necesarios.
 - **Chroma:** candidato para resaltado de sintaxis de fragmentos de código; validar compatibilidad, mantenimiento y licencias antes de fijar versión.
 - **Bubble Tea (Charm):** reservado para una futura interfaz de terminal interactiva (TUI); no es requisito para el MVP inicial.
+- **Wails, Svelte, Tailwind CSS y daisyUI (Fase 7):** interfaz gráfica local opcional en el mismo código. Wails aporta la ventana nativa y el enlace entre Go y el frontend; Svelte, Tailwind y daisyUI se compilan en tiempo de build y se incrustan como activos estáticos. Ni Node.js ni estas dependencias son necesarios para compilar o ejecutar la CLI (sección 8).
 - **SQLite:** índice local persistente. No es necesario para `audit --diff` en las Fases 1 a 4; su decisión puede diferirse hasta antes de la Fase 5.
 - **FTS5:** búsqueda textual, si está disponible en el driver SQLite elegido.
 - **Tree-sitter:** parsing multilenguaje con gramáticas mantenidas y licencias revisadas. Está en la ruta crítica de la Fase 1 para Python, PHP, JavaScript y TypeScript (Go usa su toolchain estándar), por lo que su estrategia de integración (CGO o WASM) se decide en la Fase 0.
@@ -263,8 +265,11 @@ internal/
     lsp/
   ai/
   cli/
+  ui/                   # adaptador Wails; solo con la etiqueta de build `ui` (Fase 7)
+ui/
+  frontend/             # Svelte + Vite + Tailwind + daisyUI (Fase 7)
 api/
-  openapi/              # contrato futuro; no requiere API implementada en el MVP
+  openapi/              # solo si se decide una API HTTP externa (Fase 7.4); no es necesaria para la UI
 testdata/
   go/
   python/
@@ -289,7 +294,7 @@ Esta estructura es una guía modular, no una orden de crear paquetes vacíos. Cr
 - `analysis` y `languages` producen información estructurada.
 - `storage` implementa persistencia mediante los contratos requeridos.
 - `cli` convierte argumentos en llamadas a casos de uso y representa los resultados.
-- La futura web llamará a los mismos casos de uso a través de una API, sin reimplementar el análisis.
+- La UI (Wails), la CLI, el servidor MCP y cualquier API futura llaman a los mismos casos de uso de `application`, sin reimplementar el análisis. `domain` y `application` no importan CLI, Wails ni código de UI.
 - Los adaptadores de IA nunca son requisito para buscar, indexar o auditar reglas deterministas.
 
 ### 7.2 Modelo común
@@ -328,25 +333,77 @@ Ejemplo ilustrativo (el esquema definitivo se fija en la Fase 0 y se versiona co
 }
 ```
 
-## 8. Contratos para la futura interfaz web
+## 8. Interfaz gráfica local (Wails, Svelte y daisyUI)
 
-Aunque no se implemente una web en el MVP, los casos de uso deben devolver estructuras que puedan serializarse.
+Codixai incluirá una interfaz gráfica local opcional, en el mismo código y, en su variante con UI, en el mismo binario que la CLI. Se lanza con `codixai ui` (alias: `codixai --ui`). La UI no se construye en el MVP (Fase 7), pero la arquitectura debe permitirla desde la Fase 0: ese es el objetivo de esta sección.
 
-La futura API deberá poder exponer operaciones conceptuales como:
+### 8.1 Qué es y qué no es Wails
 
-- obtener resumen del repositorio;
-- buscar símbolos;
-- obtener un símbolo y sus ubicaciones;
-- consultar dependencias entrantes y salientes;
-- recuperar subgrafos acotados;
-- consultar flujos y sus evidencias;
-- ejecutar o consultar auditorías.
+Wails construye aplicaciones de escritorio con backend en Go y frontend web renderizado en el webview del sistema (WebView2 en Windows, WebKit en macOS y Linux), sin incluir un navegador completo. **No es un servidor web:** `codixai ui` abre una ventana nativa y no escucha en ningún puerto. Consecuencias que deben asumirse:
 
-No devolver grafos ilimitados por defecto: las consultas deben admitir límites, filtros y paginación.
+- el modo de escritorio depende de bibliotecas nativas del sistema y, según la plataforma, de CGO (confirmar por plataforma en el ADR 7.0);
+- no funciona sin entorno gráfico (SSH, contenedores, CI), por lo que la CLI sigue siendo la interfaz principal para esos entornos;
+- la compilación cruzada del modo de escritorio es limitada: se compila en CI por plataforma (verificar en el ADR 7.0);
+- Wails tiene dos versiones mayores con APIs incompatibles. En la documentación consultada, v2 es la versión estable y v3 está en beta, con servicios enlazados tipados y un modo servidor (sin ventanas nativas ni CGO) que sirve el frontend por HTTP. La elección es la decisión pendiente 11.
 
-No implementar aún servidor HTTP, autenticación web, frontend, WebSockets ni contratos OpenAPI completos hasta validar los casos de uso. Mantener la carpeta `api/openapi` solo cuando exista una especificación concreta que mantener; no crear documentación ficticia.
+### 8.2 Variantes de build
 
-Cuando se añada servidor local, protegerlo contra accesos de otros sitios, acceso arbitrario a rutas, peticiones no autorizadas y exposición accidental a la red. Escuchar en loopback por defecto.
+| Variante | Compilación | Requisitos | Uso |
+|---|---|---|---|
+| Solo CLI (predeterminada) | `go build ./cmd/codixai` | Toolchain de Go y lo que exija el parsing (ADR de la Fase 0). Sin Node.js, sin Wails, sin webview. | Terminales, CI, contenedores, `go install` |
+| Con UI | Compilar el frontend y luego `go build` con la etiqueta `ui` (o la herramienta de Wails; se fija en el ADR 7.0) | Node.js solo en build; bibliotecas nativas del webview en ejecución | Uso de escritorio |
+| Servidor local (opcional) | Etiquetas definidas en el ADR 7.0 | Sin ventana nativa | Acceso desde navegador en loopback |
+
+La variante con UI contiene toda la CLI. En la variante solo-CLI, `codixai ui` termina con un error de uso claro que explica cómo obtener la variante con UI. El código de UI vive tras etiquetas de build para que la variante solo-CLI no importe Wails ni requiera los activos compilados del frontend. Como `go install` no puede compilar el frontend, produce siempre la variante solo-CLI.
+
+### 8.3 Arquitectura
+
+La dirección de dependencias es `ui → application → domain`, nunca al revés.
+
+```text
+internal/ui/        # adaptador Wails (etiqueta ui): arranque, ventana y servicios enlazados
+ui/frontend/        # Svelte + Vite + Tailwind + daisyUI; se compila a ui/frontend/dist
+ui/embed.go         # incrusta los activos compilados (etiqueta ui)
+```
+
+- **Servicios enlazados finos:** traducen entre la UI y los casos de uso. No contienen reglas ni lógica de análisis.
+- **Un único contrato:** los servicios devuelven los mismos DTO versionados (`schema_version`) que `--format json`. Los tipos de TypeScript se generan desde Go y no se duplican a mano. Una prueba automatizada comprueba que, para el mismo cambio, la UI y la CLI muestran los mismos resultados.
+- **Operaciones largas como trabajos:** iniciar una operación devuelve un `job_id`; el progreso y el resultado llegan por eventos; son cancelables mediante `context` y no bloquean la ventana. El progreso representa fases reales, como en la CLI.
+- **Límites, filtros y paginación** en toda consulta. No devolver grafos ilimitados por defecto.
+- **Estado:** la UI no guarda resultados de análisis propios; solo preferencias (tema, idioma, repositorios recientes) en el directorio de configuración del usuario. Sin telemetría.
+- **Solo lectura:** la UI nunca modifica el repositorio analizado; solo escribe exportaciones en rutas que la persona elige.
+
+Operaciones conceptuales que la UI debe poder exponer, según la fase en que existan sus casos de uso: resumen del repositorio, auditoría de diffs, hallazgos y evidencias, verificación de claims, búsqueda de símbolos, dependencias entrantes y salientes, subgrafos acotados, flujos con evidencias y exportación de informes.
+
+### 8.4 Frontend: Svelte, Tailwind y daisyUI
+
+- **SPA estática** con Svelte, Vite y TypeScript, sin renderizado en servidor. Fijar versiones exactas al comenzar la Fase 7 y consultar la documentación vigente de Svelte, Tailwind y daisyUI, porque su configuración cambia entre versiones mayores; no asumirla de memoria.
+- **daisyUI** como plugin de Tailwind en tiempo de build. Tema claro y oscuro según el sistema, con alternancia manual, y colores semánticos para severidad.
+- **Accesibilidad:** la información no se transmite solo con color (severidad y estado epistemológico llevan texto e icono); navegación completa por teclado con foco visible; roles y etiquetas ARIA en tablas, diálogos y pestañas; contraste suficiente; respeto de `prefers-reduced-motion`. Es el equivalente de `--no-color` y `--plain` en la CLI.
+- **Textos** en un catálogo de mensajes desde el primer componente, preparados para español e inglés (decisión pendiente 14).
+- **Sin recursos remotos:** fuentes, iconos y estilos incluidos localmente; sin CDN.
+- **Dependencias npm:** mínimas, con lockfile, licencias revisadas e instalación con `npm ci` en CI. Node.js solo se necesita en build.
+- **Pruebas:** componentes y flujos principales, comprobaciones básicas de accesibilidad y contrato con los DTO de Go.
+
+### 8.5 Seguridad de la interfaz
+
+- **Activos incrustados y sin red:** sin peticiones externas, CSP restrictiva, sin `eval` ni scripts en línea y sin navegación a orígenes externos. Los enlaces externos se abren en el navegador del sistema desde Go, con una lista de destinos permitidos. Las herramientas de desarrollo se deshabilitan en los releases (verificar la opción en la versión de Wails elegida).
+- **Contenido del repositorio no confiable:** fragmentos de código, rutas, mensajes de commit y textos de reglas se muestran siempre como texto. Está prohibido `{@html}` y construir HTML con ellos; el resaltado de sintaxis se genera a partir de tokens escapados. Es el mismo principio que protege a la CLI y a los agentes de la inyección de instrucciones.
+- **Rutas acotadas:** la UI nunca lee archivos arbitrarios. Todo acceso pasa por servicios de Go restringidos a la raíz seleccionada, con canonicalización y rechazo de escapes por enlaces simbólicos, igual que la CLI. Los archivos fuera de la raíz (claims, informes) solo se abren mediante un diálogo nativo elegido por la persona.
+- **Modo servidor (si se adopta):** loopback por defecto y puerto aleatorio, token por sesión, validación de `Host` y `Origin` (contra peticiones de otros sitios y DNS rebinding), sin CORS abierto, solo lectura y exposición a otras interfaces únicamente con una opción explícita y una advertencia.
+- **Sin telemetría ni envío de código.**
+
+### 8.6 Si la UI no puede abrirse
+
+`codixai ui` debe fallar con un mensaje accionable (sin entorno gráfico, webview no disponible, variante sin UI) e indicar alternativas (`--format json`, informe SARIF, modo servidor si existe). Nunca debe quedarse colgado.
+
+### 8.7 Requisitos que se cumplen desde la Fase 0
+
+1. `application` no depende de CLI ni de UI, y una prueba de arquitectura lo verifica.
+2. Los resultados son DTO versionados y serializables.
+3. Las operaciones largas reciben `context` y reportan progreso.
+4. Todo acceso a archivos está acotado a la raíz seleccionada.
+5. El código específico de UI queda tras etiquetas de build.
 
 ## 9. Interfaz CLI inicial
 
@@ -369,6 +426,7 @@ codixai verify --base main --claims claims.json
 codixai baseline create
 codixai report --format json
 codixai report --format sarif
+codixai ui --root .
 ```
 
 ### Experiencia visual de terminal
@@ -402,6 +460,7 @@ La CLI es una interfaz de producto, no una salida de depuración. Desde los prim
 - `index` es idempotente y puede reanudarse después de una interrupción.
 - `audit --diff` detecta cambios respecto a una base definida; debe permitir especificar la base explícitamente y no asumir silenciosamente que cualquier rama equivale a la rama principal.
 - `audit --diff` admite tres orígenes de cambios: `--base <ref>` (commits entre la base y `HEAD`), `--staged` (área de preparación) y `--worktree` (cambios sin commit). Los agentes suelen trabajar sin confirmar sus cambios, por lo que los tres modos deben producir resultados consistentes y declarar en la salida qué origen se analizó.
+- `codixai ui` (alias `codixai --ui`) abre la interfaz gráfica de la sección 8. Solo existe en la variante con UI; en la variante solo-CLI termina con un error de uso que explica cómo obtenerla.
 
 Los comandos `refs`, `deps` y `audit --diff` solo pueden prometer las relaciones y capacidades realmente implementadas. Si un lenguaje todavía no tiene resolución semántica, informar ese límite.
 
@@ -516,6 +575,7 @@ Un agente debe poder solicitar una auditoría del diff y verificar claims, proce
 - No ejecutar código del repositorio ni hooks de Git.
 - No invocar gestores de paquetes ni herramientas de ecosistema que puedan ejecutar scripts del proyecto o acceder a la red (por ejemplo, `npm install` o `composer install`) sin opt-in explícito y un modo restringido documentado. Revisar también si `go list`, `go/packages` o las toolchains automáticas de Go violan este principio en cada configuración. Preferir leer manifiestos y lockfiles directamente.
 - Invocar Git siempre con lista de argumentos (nunca mediante cadenas de shell) y neutralizando la configuración ejecutable del repositorio (por ejemplo, `--no-ext-diff`, `--no-textconv` y `-c core.fsmonitor=false`). Verificar la lista completa contra la documentación de Git vigente y cubrirla con pruebas.
+- La interfaz gráfica cumple las mismas restricciones y las específicas de la sección 8.5 (activos incrustados, sin red, rutas acotadas y contenido del repositorio tratado como no confiable).
 - No seguir enlaces simbólicos fuera de la raíz sin autorización explícita.
 - Evitar path traversal y validar rutas.
 - Excluir secretos y archivos sensibles.
@@ -652,14 +712,34 @@ Criterio de salida: fixtures para los cinco lenguajes verifican las capacidades 
 
 Criterio de salida: cada capacidad nueva tiene fixtures, métricas, límites y justificación de valor frente al coste de mantenimiento.
 
-### Fase 7 — API y aplicación visual futura
+### Fase 7 — Interfaz gráfica local (Wails, Svelte y daisyUI)
 
-- API local sobre los casos de uso existentes;
-- grafos y diagramas interactivos para explicar cambios e impacto;
-- frontend independiente y controles de acceso;
-- pruebas de API, seguridad y visualización.
+No comenzar esta fase hasta que CLI, formato de hallazgos y contratos de verificación hayan demostrado estabilidad. La excepción es el spike 7.0, que puede adelantarse tras la Fase 3 porque el riesgo principal está en el empaquetado y la distribución, no en las pantallas.
 
-No comenzar esta fase hasta que CLI, formato de hallazgos y contratos de verificación hayan demostrado estabilidad.
+**7.0 Spike de empaquetado y ADR**
+
+- ADR de la versión de Wails (decisión pendiente 11) con un prototipo mínimo enlazado a un caso de uso real de solo lectura;
+- compilación con la etiqueta `ui` en Linux, macOS y Windows desde CI, con los requisitos de sistema documentados;
+- comprobar que la variante sin etiqueta sigue compilando sin Node.js, sin Wails y sin dependencias de webview;
+- medir tamaño y tiempo de arranque de ambas variantes;
+- ADR sobre el modo servidor local (decisión pendiente 12).
+
+**7.1 UI de auditoría (primer MVP visual)**
+
+- seleccionar repositorio (diálogo nativo o `--root`);
+- ejecutar `audit --diff` con `--base`, `--staged` y `--worktree` como trabajos cancelables y con progreso real;
+- lista de hallazgos con filtro y orden por regla, severidad, estado epistemológico, lenguaje y ruta;
+- detalle del hallazgo: evidencia, hunk del diff, nivel de soporte de la regla, limitaciones y recomendación;
+- exportar JSON y SARIF mediante un diálogo de guardado;
+- tema claro y oscuro, accesibilidad y textos preparados para traducción.
+
+**7.2 UI de verificación (requiere la Fase 2):** carga de claims e informes aportados y presentación de resultados `verified`, `contradicted` y `unresolved` con su evidencia.
+
+**7.3 Visualización estructural (requiere las Fases 5 y 6):** grafos acotados de dependencias, impacto de un cambio y mapas de módulos, siempre con límites, filtros y paginación, y con las relaciones `unresolved` visualmente distinguibles.
+
+**7.4 API local para clientes externos:** solo si un caso de uso la justifica, con las mismas reglas de seguridad de la sección 8.5.
+
+Criterio de salida: las pantallas llaman únicamente a casos de uso de `application` (sin lógica de análisis en el frontend); la salida mostrada coincide con la de `--format json` para el mismo cambio, comprobado de forma automatizada; ambas variantes se compilan y prueban en CI; y se documentan las plataformas verificadas y los requisitos del sistema.
 
 ### Criterio transversal de avance
 
@@ -722,7 +802,9 @@ Codixai debe poder compartirse desde las primeras fases, aunque se encuentre en 
 
 Publicar releases con etiquetas Git, changelog y binarios reproducibles para las plataformas que se hayan validado. Ofrecer instalación desde el código fuente y documentar qué plataformas están probadas.
 
-La licencia Apache-2.0 es una propuesta adecuada para facilitar contribuciones y adopción empresarial, pero debe confirmarse antes de distribuir el repositorio.
+**Variantes (desde la Fase 7):** la variante solo-CLI (la predeterminada de `go build` y `go install`, sin Node.js ni webview) y la variante con UI (CLI más `codixai ui`). La segunda se compila en CI por plataforma, porque el frontend se incrusta como activos y el modo de escritorio depende de bibliotecas nativas. Ambas salen del mismo código. Cada release indica qué variante es cada artefacto y los requisitos de sistema de la variante con UI (por ejemplo, el runtime WebView2 en Windows y las bibliotecas WebKitGTK en Linux; confirmar la lista en el ADR 7.0).
+
+La licencia del proyecto es MIT, confirmada por el mantenedor el 2026-10-20 y registrada en el archivo `LICENSE` del repositorio. La decisión y su historial están en el ADR 0004 del repositorio.
 
 ## 17. Implementación con agentes de IA (OpenCode)
 
@@ -779,6 +861,7 @@ El agente debe detenerse y preguntar a la persona responsable, sin elegir por su
 5. Una prueba falla sin causa clara tras dos intentos razonablemente distintos. Debe informar del fallo, no relajar la prueba.
 6. Marcar el soporte de una regla en un lenguaje exigiría saltarse las fixtures.
 7. Algo no puede verificarse en el entorno (por ejemplo, compilar en Windows o macOS): debe declararlo como no verificado, nunca como correcto.
+8. Una tarea de UI exige elegir la versión de Wails, añadir una dependencia npm o cambiar la política de distribución (decisiones 11 a 13).
 
 Valores provisionales que el agente puede usar sin preguntar: la versión de Go instalada (registrándola en un ADR), identificadores y comentarios de código en inglés técnico y mensajes de commit en inglés. Todo lo demás de la lista anterior requiere confirmación.
 
@@ -804,6 +887,15 @@ Una tarea está lista para ejecutarse (*Definition of Ready*) cuando tiene objet
 ### 17.8 Autoverificación con Codixai
 
 Cuando exista `audit --diff --worktree`, cada tarea incluirá ejecutarlo sobre el propio cambio del agente. Los hallazgos que el agente considere falsos positivos se informan a la persona responsable con su evidencia; no se suprimen silenciosamente. Este uso alimenta el corpus de la Fase 1 siempre que la persona responsable lo apruebe.
+
+### 17.9 Reglas para tareas de la interfaz gráfica
+
+- Antes de escribir código de Wails, detectar la versión desde `go.mod` (`github.com/wailsapp/wails/v2` o `.../v3`) y la herramienta de línea de comandos correspondiente. Las APIs de v2 y v3 son incompatibles: no mezclarlas ni adivinar; ante la duda, preguntar.
+- `domain` y `application` no importan Wails ni nada de `ui/`. El adaptador solo traduce.
+- El frontend usa tipos generados desde Go; no se duplican a mano.
+- Está prohibido `{@html}` y cualquier inserción de HTML a partir de contenido del repositorio; activar la regla de lint correspondiente (por ejemplo, `svelte/no-at-html-tags` de eslint-plugin-svelte).
+- Instalar dependencias de frontend con `npm ci`, idealmente con `--ignore-scripts`. No ejecutar `npm install` si modifica el lockfile sin pedir confirmación.
+- El agente no debe afirmar que una pantalla "se ve bien" sin evidencia: se verifica con pruebas automatizadas y, cuando haga falta juicio visual, lo revisa la persona responsable.
 
 ## 18. Definition of Done del primer hito
 
@@ -857,7 +949,7 @@ Antes de fijar dependencias o comenzar la fase de análisis, el agente debe revi
 ## Decisiones pendientes que requieren confirmación
 
 1. URL definitiva del repositorio y organización propietaria.
-2. Confirmación de licencia Apache-2.0.
+2. Confirmación de licencia. **Resuelta el 2026-10-20: MIT.**
 3. Plataformas que se soportarán y probarán en la primera release.
 4. Versión mínima de Go y política de actualización.
 5. Estrategia Tree-sitter/CGO/WASM (bloqueante para la Fase 1) y driver SQLite (diferible hasta antes de la Fase 5), cada uno tras un ADR con builds de prueba.
@@ -866,6 +958,12 @@ Antes de fijar dependencias o comenzar la fase de análisis, el agente debe revi
 8. Proveedores de IA que se soportarán, si se incorporan.
 9. Mecanismo exacto de integración de MCP, OpenCode y Gentle-Shell tras verificar sus APIs actuales.
 10. Formatos de informes de pruebas aceptados como evidencia aportada (por ejemplo, JUnit XML, `go test -json`, TAP) y reglas de vinculación a una revisión.
+11. Versión de Wails (v2 estable o v3 beta, que ofrece servicios tipados y modo servidor) y política de actualización; decidir con el spike 7.0 y registrar en un ADR. No mezclar APIs de ambas versiones.
+12. Si se incluye un modo servidor local (navegador en loopback) además de la ventana de escritorio, y con qué controles de seguridad.
+13. Política de distribución de la variante con UI (binario único CLI más UI frente a solo-CLI como predeterminada) y plataformas soportadas para la UI.
+14. Idiomas de la interfaz (español, inglés) y política de traducción.
+
+Las decisiones 11 a 14 solo bloquean la Fase 7.
 
 Estas decisiones no deben bloquear la creación de la base ejecutable, salvo aquellas necesarias para publicar un paquete con nombre o licencia definitivos y la estrategia de parsing (decisión 5), necesaria antes de implementar las reglas de la Fase 1.
 
@@ -874,6 +972,18 @@ Estas decisiones no deben bloquear la creación de la base ejecutable, salvo aqu
 ---
 
 ## Apéndice A — Registro de cambios
+
+### Mantenimiento posterior a la versión 0.6.0
+
+- 2026-10-20: el mantenedor confirma la licencia **MIT** y resuelve la decisión pendiente 2. El repositorio publica el archivo `LICENSE` con el texto íntegro de la licencia. La decisión está registrada en el ADR 0004 del repositorio, junto con la URL del repositorio y el camino del módulo.
+
+### Versión 0.6.0 respecto a 0.5.0
+
+- Se integra una interfaz gráfica local con Wails, Svelte y daisyUI, lanzable con `codixai ui` (alias `codixai --ui`), en el mismo código mediante etiquetas de build.
+- Se reescribe la sección 8 (qué es Wails, variantes de build, arquitectura, frontend, seguridad y requisitos desde la Fase 0) y se redefine la Fase 7 con un spike de empaquetado adelantable.
+- Se aclara que Wails abre una ventana nativa y no un servidor; el modo servidor es opcional y está sujeto a decisión.
+- Se añaden las decisiones pendientes 11 a 14, la sección 17.9 y la variante de distribución con UI.
+- Se crea el paquete de contexto para OpenCode (`AGENTS.md`, `opencode.json`, convenciones, tareas de las Fases 0 y 1, agente revisor y comandos), que la versión 0.5.0 mencionaba pero no incluía.
 
 ### Versión 0.5.0 respecto a 0.4.0
 

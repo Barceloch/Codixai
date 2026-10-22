@@ -144,30 +144,6 @@ type AnalysisRun struct {
 	Limitations   []string  `json:"limitations,omitempty"`
 }
 
-// Claim is an explicit assertion made about a change.
-type Claim struct {
-	ID      string   `json:"id"`
-	Type    string   `json:"type"`
-	Paths   []string `json:"paths,omitempty"`
-	Symbols []string `json:"symbols,omitempty"`
-	Report  string   `json:"report,omitempty"`
-}
-
-// Claim status values.
-const (
-	ClaimVerified     = "verified"
-	ClaimContradicted = "contradicted"
-	ClaimUnresolved   = "unresolved"
-)
-
-// ClaimResult is the outcome of checking one claim.
-type ClaimResult struct {
-	Claim    Claim      `json:"claim"`
-	Status   string     `json:"status"`
-	Message  string     `json:"message"`
-	Evidence []Evidence `json:"evidence,omitempty"`
-}
-
 // VerificationRun is the document produced by verifying a set of claims.
 type VerificationRun struct {
 	SchemaVersion string        `json:"schema_version"`

@@ -1,0 +1,4 @@
+{
+  "base": "main",
+  "expected_statuses": { "c1": "unresolved" }
+}

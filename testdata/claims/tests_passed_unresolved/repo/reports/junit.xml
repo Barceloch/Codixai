@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="codixai" tests="2" failures="0" errors="0">
+  <testsuite name="internal/payment" tests="2" failures="0" errors="0">
+    <properties>
+      <property name="revision" value="1111111"/>
+    </properties>
+    <testcase name="TestCharge" classname="internal/payment"/>
+    <testcase name="TestRefund" classname="internal/payment"/>
+  </testsuite>
+</testsuites>

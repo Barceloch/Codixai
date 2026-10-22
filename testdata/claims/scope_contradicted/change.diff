@@ -1,0 +1,18 @@
+diff --git a/cmd/codixai/main.go b/cmd/codixai/main.go
+index 7777777..8888888 100644
+--- a/cmd/codixai/main.go
++++ b/cmd/codixai/main.go
+@@ -1,3 +1,4 @@
+ package main
+ 
++// version prints the version of the tool.
+ func main() {
+diff --git a/internal/billing/service.go b/internal/billing/service.go
+index 1111111..2222222 100644
+--- a/internal/billing/service.go
++++ b/internal/billing/service.go
+@@ -1,3 +1,4 @@
+ package billing
+ 
++// Charge processes a payment.
+ func Charge(amount int) error {

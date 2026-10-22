@@ -15,3 +15,7 @@
 .idea/
 .vscode/
 *.swp
+
+# Tooling del entorno de desarrollo (registro de skills)
+.atl/
+.agents/

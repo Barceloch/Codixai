@@ -1,0 +1,11 @@
+diff --git a/internal/payment/payment_test.go b/internal/payment/payment_test.go
+index 3333333..4444444 100644
+--- a/internal/payment/payment_test.go
++++ b/internal/payment/payment_test.go
+@@ -1,5 +1,6 @@
+ package payment
+ 
+ func TestCharge(t *testing.T) {
++	_ = Charge(2)
+ 	_ = Charge(1)
+ }

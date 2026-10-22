@@ -1,0 +1,5 @@
+{
+  "base": "main",
+  "head": "9f2c1ab",
+  "expected_statuses": { "c1": "verified" }
+}

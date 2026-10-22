@@ -1,0 +1,11 @@
+diff --git a/internal/payment/payment_test.go b/internal/payment/payment_test.go
+new file mode 100644
+index 0000000..3333333
+--- /dev/null
++++ b/internal/payment/payment_test.go
+@@ -0,0 +1,5 @@
++package payment
++
++func TestCharge(t *testing.T) {
++	_ = Charge(1)
++}

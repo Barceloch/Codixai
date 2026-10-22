@@ -1,0 +1,7 @@
+{
+  "schema_version": "0.1",
+  "base": "main",
+  "claims": [
+    { "id": "c1", "type": "dependency_unchanged" }
+  ]
+}

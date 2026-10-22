@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/barceloch/codixai/internal/glob"
 )
 
 const (
@@ -114,6 +116,14 @@ type OutputConfig struct {
 	Format string `json:"format"`
 }
 
+// VerifyConfig holds the options of the verification of the claims.
+type VerifyConfig struct {
+	// FailOnUnresolved tells whether an unresolved claim makes the
+	// verification fail. The default is false: an unresolved claim is
+	// usually a limitation of the analysis, not a failure of the change.
+	FailOnUnresolved bool `json:"fail_on_unresolved"`
+}
+
 // Config is the validated configuration of the analyzed repository.
 type Config struct {
 	// Version is the version of the configuration format.
@@ -124,6 +134,8 @@ type Config struct {
 	Analysis AnalysisConfig `json:"analysis"`
 	// Audit holds the options of the audit.
 	Audit AuditConfig `json:"audit"`
+	// Verify holds the options of the verification of the claims.
+	Verify VerifyConfig `json:"verify"`
 	// Output holds the options of the report.
 	Output OutputConfig `json:"output"`
 	// Source is the path of the file the configuration was loaded from. It
@@ -131,7 +143,7 @@ type Config struct {
 	Source string `json:"source,omitempty"`
 
 	// matchers holds the compiled exclude patterns.
-	matchers []*globMatcher
+	matchers []*glob.Matcher
 }
 
 // Defaults returns the configuration used when the repository has no
@@ -150,6 +162,7 @@ func Defaults() *Config {
 			Rules:        map[string]RuleConfig{},
 			Suppressions: []Suppression{},
 		},
+		Verify: VerifyConfig{FailOnUnresolved: false},
 		Output: OutputConfig{Format: FormatText},
 	}
 	config.compile()
@@ -215,6 +228,9 @@ func Parse(data []byte, path string) (*Config, error) {
 		return nil, err
 	}
 	if err := loader.loadAudit(document, config); err != nil {
+		return nil, err
+	}
+	if err := loader.loadVerify(document, config); err != nil {
 		return nil, err
 	}
 	if err := loader.loadOutput(document, config); err != nil {
@@ -309,7 +325,7 @@ func (l *configLoader) loadAnalysis(document *yamlNode, config *Config) error {
 			return err
 		}
 		for _, pattern := range values {
-			if _, err := newGlobMatcher(pattern); err != nil {
+			if _, err := glob.Compile(pattern); err != nil {
 				return l.errorf(exclude, "invalid exclude pattern %q: %v", pattern, err)
 			}
 		}
@@ -426,7 +442,7 @@ func (l *configLoader) loadAudit(document *yamlNode, config *Config) error {
 				}
 				value := strings.TrimSpace(path.value)
 				if value != "" {
-					if _, err := newGlobMatcher(value); err != nil {
+					if _, err := glob.Compile(value); err != nil {
 						return l.errorf(path, "invalid path pattern %q: %v", value, err)
 					}
 				}
@@ -435,6 +451,28 @@ func (l *configLoader) loadAudit(document *yamlNode, config *Config) error {
 			values = append(values, suppression)
 		}
 		config.Audit.Suppressions = values
+	}
+	return nil
+}
+
+// loadVerify reads the options of the verification of the claims.
+func (l *configLoader) loadVerify(document *yamlNode, config *Config) error {
+	node := document.get("verify")
+	if node == nil || node.kind == yamlNull {
+		return nil
+	}
+	if node.kind != yamlMapping {
+		return l.errorf(node, "verify must be a mapping of keys")
+	}
+	if failOn := node.get("fail_on_unresolved"); failOn != nil && failOn.kind != yamlNull {
+		if failOn.kind != yamlScalar {
+			return l.errorf(failOn, "verify.fail_on_unresolved must be a boolean")
+		}
+		value, ok := parseBool(failOn.value)
+		if !ok {
+			return l.errorf(failOn, "verify.fail_on_unresolved must be a boolean, got %q", failOn.value)
+		}
+		config.Verify.FailOnUnresolved = value
 	}
 	return nil
 }
@@ -486,9 +524,9 @@ func (l *configLoader) stringList(node *yamlNode, field string) ([]string, error
 
 // compile builds the compiled exclude patterns of the configuration.
 func (c *Config) compile() error {
-	matchers := make([]*globMatcher, 0, len(c.Analysis.Exclude))
+	matchers := make([]*glob.Matcher, 0, len(c.Analysis.Exclude))
 	for _, pattern := range c.Analysis.Exclude {
-		matcher, err := newGlobMatcher(pattern)
+		matcher, err := glob.Compile(pattern)
 		if err != nil {
 			return fmt.Errorf("invalid exclude pattern %q: %w", pattern, err)
 		}
@@ -502,7 +540,7 @@ func (c *Config) compile() error {
 // analysis by the configured patterns.
 func (c *Config) Excluded(path string) bool {
 	for _, matcher := range c.matchers {
-		if matcher.matches(path) {
+		if matcher.Matches(path) {
 			return true
 		}
 	}

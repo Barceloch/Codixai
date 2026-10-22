@@ -1,0 +1,7 @@
+{
+  "schema_version": "0.1",
+  "base": "main",
+  "claims": [
+    { "id": "c1", "type": "tests_passed", "report": "reports/go-test.json", "report_revision": "9f2c1ab" }
+  ]
+}
