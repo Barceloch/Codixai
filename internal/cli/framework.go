@@ -97,6 +97,29 @@ func (e *FindingsError) Error() string {
 	return fmt.Sprintf("%d finding(s) reach the failure threshold (fail_on: %s)", e.Count, e.Threshold)
 }
 
+// VerificationError reports a completed verification whose claims reach the
+// failure threshold.
+//
+// The entry point maps it to the exit code 3. The document of the
+// verification has already been written when the error is returned.
+type VerificationError struct {
+	// Count is the number of contradicted claims.
+	Count int
+	// Unresolved is the number of unresolved claims.
+	Unresolved int
+	// Threshold describes the rule that made the verification fail.
+	Threshold string
+}
+
+// Error implements the error interface.
+func (e *VerificationError) Error() string {
+	message := fmt.Sprintf("%d claim(s) are contradicted", e.Count)
+	if e.Unresolved > 0 {
+		message += fmt.Sprintf(", %d claim(s) are unresolved", e.Unresolved)
+	}
+	return fmt.Sprintf("%s (%s)", message, e.Threshold)
+}
+
 // Command is a node of the command tree.
 //
 // A command declares its metadata, its flags and its handler. The handler
@@ -519,6 +542,12 @@ func Execute(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	var findings *FindingsError
 	if errors.As(err, &findings) {
 		fmt.Fprintf(stderr, "codixai: %s\n", findings.Error())
+		return ExitFindings
+	}
+
+	var verification *VerificationError
+	if errors.As(err, &verification) {
+		fmt.Fprintf(stderr, "codixai: %s\n", verification.Error())
 		return ExitFindings
 	}
 

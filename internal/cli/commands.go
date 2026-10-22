@@ -35,6 +35,7 @@ func NewRootCommand(env *Env) *Command {
 			"a package manager and never accesses the network.",
 		Example: "codixai audit --diff --worktree\n" +
 			"codixai audit --diff --base main\n" +
+			"codixai verify --base main --claims claims.json\n" +
 			"codixai init\n" +
 			"codixai version",
 		PersistentFlags: []string{"root", "format", "no-color", "plain", "version"},
@@ -58,6 +59,7 @@ func NewRootCommand(env *Env) *Command {
 	}
 
 	root.AddCommand(newAuditCommand(env))
+	root.AddCommand(newVerifyCommand(env))
 	root.AddCommand(newInitCommand(env))
 	root.AddCommand(newVersionCommand(env))
 	root.AddCommand(newHelpCommand(root))

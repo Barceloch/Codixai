@@ -187,3 +187,81 @@ func writeRuleCatalog(w io.Writer, r *ui.Renderer, rules []domain.Rule) {
 		}
 	}
 }
+
+// writeVerifyReport writes the human readable report of a verification.
+//
+// The report never hides a limitation and never claims more than the
+// verification decided: the state of every claim is always present in its
+// textual form, and an unresolved claim is presented as what it is, an
+// answer that the evidence did not give.
+func writeVerifyReport(w io.Writer, r *ui.Renderer, result *application.VerifyResult) {
+	document := result.Document
+
+	fmt.Fprintln(w, r.Title("Codixai verification"))
+	writeField(w, r, "  ", "base", document.Base)
+	writeField(w, r, "  ", "head", document.Head)
+	writeField(w, r, "  ", "generated at", document.GeneratedAt)
+	writeField(w, r, "  ", "tool", fmt.Sprintf("codixai %s (schema %s)", document.ToolVersion, document.SchemaVersion))
+	writeField(w, r, "  ", "policy", fmt.Sprintf("fail_on_unresolved %t", result.FailOnUnresolved))
+
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s (%d)\n", r.Title("Claims"), len(document.Results))
+	if len(document.Results) == 0 {
+		fmt.Fprintln(w, "  No claim. The absence of claims does not prove that the change is correct.")
+	}
+	for _, claim := range document.Results {
+		writeClaimResult(w, r, claim)
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, r.Title("Summary"))
+	writeField(w, r, "  ", "total", fmt.Sprintf("%d", document.Summary.Total))
+	writeField(w, r, "  ", "by state", describeClaimCounts(document.Summary.ByStatus))
+
+	if len(document.Limitations) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, r.Title("Limitations"))
+		for _, limitation := range document.Limitations {
+			fmt.Fprintf(w, "  - %s\n", limitation)
+		}
+	}
+}
+
+// writeClaimResult writes the block of one claim result.
+func writeClaimResult(w io.Writer, r *ui.Renderer, result domain.ClaimResult) {
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "  %s  %s  %s\n",
+		r.Bold(result.Claim.ID),
+		r.Dim(result.Claim.Type),
+		r.ClaimStatus(result.Status),
+	)
+	if len(result.Claim.Paths) > 0 {
+		writeField(w, r, "    ", "paths", strings.Join(result.Claim.Paths, ", "))
+	}
+	if result.Claim.Report != "" {
+		writeField(w, r, "    ", "report", result.Claim.Report)
+	}
+	writeField(w, r, "    ", "message", result.Message)
+	if len(result.Evidence) > 0 {
+		writeField(w, r, "    ", "evidence", describeEvidence(result.Evidence))
+	}
+	if len(result.Limitations) > 0 {
+		writeField(w, r, "    ", "limitations", "")
+		for _, limitation := range result.Limitations {
+			fmt.Fprintf(w, "      - %s\n", limitation)
+		}
+	}
+}
+
+// describeClaimCounts renders the counters of the states of the claims.
+//
+// The states always appear in the order of the catalog, so that the report
+// of two verifications can be compared line by line.
+func describeClaimCounts(counts map[string]int) string {
+	states := []string{domain.ClaimVerified, domain.ClaimContradicted, domain.ClaimUnresolved}
+	parts := make([]string, 0, len(states))
+	for _, state := range states {
+		parts = append(parts, fmt.Sprintf("%s %d", state, counts[state]))
+	}
+	return strings.Join(parts, ", ")
+}

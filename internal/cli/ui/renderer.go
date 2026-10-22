@@ -223,3 +223,41 @@ func SupportLabel(level domain.SupportLevel) string {
 		return string(level)
 	}
 }
+
+// ClaimStatus paints the textual label of the state of a claim.
+//
+// The label never depends on the color: the state of a claim has to stay
+// understandable in a pipe, in a log file and in a screen reader.
+func (r *Renderer) ClaimStatus(status string) string {
+	return r.paint(styleOfClaimStatus(status), ClaimStatusLabel(status))
+}
+
+// ClaimStatusLabel returns the textual label of the state of a claim.
+func ClaimStatusLabel(status string) string {
+	switch status {
+	case domain.ClaimVerified:
+		return "VERIFIED"
+	case domain.ClaimContradicted:
+		return "CONTRADICTED"
+	case domain.ClaimUnresolved:
+		return "UNRESOLVED"
+	case "":
+		return "UNKNOWN"
+	default:
+		return strings.ToUpper(status)
+	}
+}
+
+// styleOfClaimStatus returns the style of the state of a claim.
+func styleOfClaimStatus(status string) style {
+	switch status {
+	case domain.ClaimVerified:
+		return infoStyle
+	case domain.ClaimContradicted:
+		return errorStyle
+	case domain.ClaimUnresolved:
+		return warningStyle
+	default:
+		return dimStyle
+	}
+}
