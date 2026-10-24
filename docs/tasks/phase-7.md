@@ -4,12 +4,14 @@ The scope and the exit criteria of this phase are fixed by the
 specification, section 14, "Fase 7", and by the section 8. This file turns
 them into atomic tasks with executable acceptance checks.
 
-**Nothing of this phase is implemented.** The interface belongs to Phase 7,
-the `codixai ui` command does not exist, and the `ui` build variant does not
-exist. What exists today is the architecture that will hold it: the
+**The spike 7.0 exists; the interface does not.** The `ui` build variant,
+the `codixai ui` command and the Wails v2 prototype are implemented behind
+the `ui` build tag (the spike of P7-01 to P7-04, see the results below). The
+screens of P7-06 to P7-11, the Svelte stack and the local server mode are
+not implemented. The architecture that will hold them exists: the
 application layer is independent of the presentation, the results are
-versioned documents, and `internal/application/architecture_test.go` protects
-those two facts.
+versioned documents, and `internal/application/architecture_test.go`
+protects those two facts.
 
 **Phase exit criterion (specification):** the screens call only the use
 cases of `application`, with no analysis logic in the frontend; the output
@@ -21,10 +23,10 @@ verified platforms and the system requirements are documented.
 
 | ID | Task | Status |
 | -- | ---- | ------ |
-| P7-01 | The ADR of the version of Wails and a minimal prototype | PENDING |
+| P7-01 | The ADR of the version of Wails and a minimal prototype | DONE |
 | P7-02 | The build with the `ui` tag in the three platforms of the CI | PENDING |
-| P7-03 | The variant without the tag | PENDING |
-| P7-04 | The size and the startup time of both variants | PENDING |
+| P7-03 | The variant without the tag | DONE |
+| P7-04 | The size and the startup time of both variants | DONE |
 | P7-05 | The ADR of the local server mode | PENDING |
 | P7-06 | The audit interface | PENDING |
 | P7-07 | The export of the reports from the interface | PENDING |
@@ -112,7 +114,7 @@ spike 7.0 has to measure.
 
 ### P7-01 — The ADR of the version of Wails and a minimal prototype
 
-- Status: **PENDING**
+- Status: **DONE** (2026-10-23)
 - Depends on: P2-05 (the use cases the interface calls)
 
 **Objective**
@@ -128,7 +130,7 @@ to a real read-only use case, and record the decision in an ADR.
   the requirements of the system per platform.
 - A prototype: a native window that calls one read-only use case of
   `application` and renders its versioned document.
-- The `internal/ui/` package, behind the `ui` build tag.
+- The `ui/` package, behind the `ui` build tag.
 
 **Acceptance checks**
 ```bash
@@ -136,8 +138,9 @@ go build -tags ui ./cmd/codixai
 go build ./cmd/codixai            # the default variant, without the tag
 go test ./internal/application/ -run TestApplicationDoesNotDependOnThePresentation
 ```
-The prototype itself needs a graphical environment, which the development
-environment does not have: the verification of the window is a manual one
+The prototype itself needs a graphical environment. The machine of the
+spike has one (a Wayland session), so the window was opened with the
+measurement mode; the automated verification of a screen is still manual
 and it is declared as such.
 
 **Out of scope**
@@ -147,12 +150,49 @@ decision
 [`0010`](../decisions/0010-distribution-policy-of-the-variants.md) and is
 not a choice of this task.
 
+**Result (2026-10-23, re-verified 2026-10-24)**
+
+- The decision is recorded in
+  [`0011`](../decisions/0011-wails-version-and-spike-frontend.md): Wails v2,
+  the module pinned to `v2.17.0`, the same version as the installed command
+  line tool. The spike frontend is static vanilla HTML and JavaScript
+  embedded with `go:embed` from `ui/assets`; there is no Node.js in the
+  build.
+- The prototype lives in `ui/` behind the `ui` build tag. `ui.App.Audit`
+  calls `application.RunAudit` with the origin that the window selects
+  (worktree or base revision) and returns the versioned document, which the
+  page renders with `textContent`. The binding surface is
+  `window.go.ui.App`.
+- `go build -tags ui ./...` and `go build -tags ui ./cmd/codixai` exit `0`.
+  The window is opened by a binary that also carries the Wails build tags:
+  `go build -tags "ui production webkit2_41" ./cmd/codixai` exits `0` (see
+  P7-04).
+- The adapter has its own tests behind the same tag: `go test -tags ui
+  ./ui/` runs five cases that check the validation of the request (empty
+  root, two origins, no origin) and that the view carries the document and
+  the origin of the use case.
+- The assets are embedded in the `ui` binary: the unique strings of
+  `ui/assets/index.html` and `ui/assets/app.js` are found in the binary
+  built with the tag and not in the default binary.
+- The window was opened in the development machine and closed by the
+  measurement mode: `CODIXAI_UI_AUTOQUIT=1s ./codixai ui --root .` exited
+  with the code `0` in 1.185 s to 1.269 s (three runs of the clean build).
+  The automated verification of a screen is still manual and it is declared
+  as such.
+
 ---
 
 ### P7-02 — The build with the `ui` tag in the three platforms of the CI
 
 - Status: **PENDING**
 - Depends on: P7-01
+
+**Note (2026-10-23)**
+The CI job for the `ui` variant is not added: the repository has no CI
+platform configured for the builds of Windows and macOS, which is a pending
+decision of the maintainer. The local build of the variant on Linux is
+verified in P7-01 and P7-04; a declared job without observed results is not
+evidence, so this task stays pending until the platform is decided.
 
 **Objective**
 Compile the variant with the interface in Linux, macOS and Windows from the
@@ -186,7 +226,7 @@ before that binary exists.
 
 ### P7-03 — The variant without the tag
 
-- Status: **PENDING**
+- Status: **DONE** (2026-10-23)
 - Depends on: P7-01
 
 **Objective**
@@ -212,11 +252,47 @@ go list -deps ./cmd/codixai | grep -i wails   # no result
 **Out of scope**
 The `codixai ui` command of the variant with the interface.
 
+**Result (2026-10-23)**
+
+The isolation is enforced by the compiler: every file of `ui/` carries
+`//go:build ui`, so a file of the default build that imported the package
+would not compile. The module graph was also inspected, with the real
+output:
+
+```console
+$ go list -deps ./cmd/codixai | wc -l
+138
+$ go list -deps ./cmd/codixai | grep -i wails
+$ go list -deps ./cmd/codixai | grep -Ei 'webview|webkit|gtk|go-ole|dbus'
+$ CGO_ENABLED=0 go build -o /tmp/codixai-nocgo ./cmd/codixai
+$ go build ./cmd/codixai
+$ go list -deps -tags "ui production webkit2_41" ./cmd/codixai | wc -l
+302
+$ go list -deps -tags "ui production webkit2_41" ./cmd/codixai | grep -c wailsapp/wails
+28
+```
+
+The two greps printed nothing: no Wails package and no webview, WebKitGTK,
+GTK or D-Bus package is reachable from the default binary. The build with
+`CGO_ENABLED=0` succeeds, so the default variant does not need a C
+toolchain. The same scan over the `ui` variant reaches 302 packages and
+includes `github.com/wailsapp/wails/v2/...`, which is the contrast that
+proves the tag is doing the work. The default binary answers `codixai ui`
+with the usage error of the CLI only variant, covered by
+`tests/integration/ui_command_test.go`. The `Build` job of the CI
+(`.github/workflows/ci.yml`) already builds this variant in Linux, macOS
+and Windows without installing Node.js.
+
+The proof is a manual command and not a unit test on purpose: a test that
+shelled out to `go list` would depend on the toolchain of the machine,
+while the fact that matters — the default build never compiles `ui/` — is
+already guaranteed by the build tags.
+
 ---
 
 ### P7-04 — The size and the startup time of both variants
 
-- Status: **PENDING**
+- Status: **DONE** (2026-10-23)
 - Depends on: P7-02, P7-03
 
 **Objective**
@@ -234,14 +310,88 @@ with another ADR.
 
 **Deliverables**
 A report in `docs/` with the measured numbers, the platform, the method and
-the command that reproduces the measurement.
+the command that reproduces the measurement. The report is the result block
+of this task.
 
 **Acceptance checks**
-Not executable today: the variant with the interface does not exist. The
-acceptance check of this task is the report with its reproduction command.
+```bash
+go build -o /tmp/codixai-default ./cmd/codixai
+go build -tags "ui production webkit2_41" -o /tmp/codixai-ui ./cmd/codixai
+stat -c%s /tmp/codixai-default /tmp/codixai-ui
+```
 
 **Out of scope**
 Any number that was not measured. A declared figure is not a measurement.
+
+**Result (2026-10-23, re-measured 2026-10-24)**
+
+Platform of the measurement: Linux amd64, Go `1.27.0`, Wails `v2.17.0`,
+WebKitGTK 4.1 (`webkit2_41`), Wayland session. The binaries are built from
+the same source with the commands of the table, with a clean `ui/assets`
+(see the fourth limitation below). Only the Linux build is measured: the
+dependency on P7-02 is satisfied locally and the CI matrix of that task is
+still pending.
+
+| Variant | Build command | Size | Startup |
+| ------- | ------------- | ---- | ------- |
+| CLI only | `go build -o codixai ./cmd/codixai` | 6,637,046 B (6.33 MiB) | 0.003 s (`codixai version`, 5 runs) |
+| `ui` tag only | `go build -tags ui -o codixai ./cmd/codixai` | 8,923,864 B (8.51 MiB) | not applicable: it compiles, but the window reports the missing Wails tags |
+| `ui` production | `go build -tags "ui production webkit2_41" -o codixai ./cmd/codixai` | 14,790,328 B (14.10 MiB) | 0.303 s – 0.404 s with a 0.1 s auto-quit; 1.185 s – 1.269 s with 1 s; 2.265 s – 2.288 s with 2 s (≈0.23 s – 0.29 s of startup) |
+
+The startup of the window is measured with the auto-quit of the prototype:
+`OnStartup` schedules `runtime.Quit` after the duration of
+`CODIXAI_UI_AUTOQUIT`, so the wall time of the process is the startup plus
+the duration. The medians of the 1 s and the 2 s runs are 1.253 s and
+2.278 s, which give a slope of 1.03 and an intercept of about 0.23 s; the
+0.1 s runs (median 0.383 s) put the startup near 0.29 s. The window opened
+in all nine runs and the process exited with the code `0`.
+
+Reproduction:
+
+```bash
+go build -o /tmp/codixai-default ./cmd/codixai
+go build -tags "ui production webkit2_41" -o /tmp/codixai-ui ./cmd/codixai
+stat -c%s /tmp/codixai-default /tmp/codixai-ui
+TIMEFORMAT=%R; time /tmp/codixai-default version
+TIMEFORMAT=%R; time CODIXAI_UI_AUTOQUIT=1s /tmp/codixai-ui ui --root .
+```
+
+Both measured binaries are plain `go build` output, and two consecutive
+builds of each variant are byte for byte identical. With the
+`-ldflags "-w -s"` that `wails build` passes in production, the same sources
+give 4,403,360 B for the CLI only variant and 10,212,224 B for the
+`ui production` variant (9.74 MiB, 2.32 times the CLI only binary).
+
+Four limitations of the packaging, observed and not hidden:
+
+- **Wails v2 needs its own build tags.** The variant does not run with the
+  `ui` tag alone: Wails gates its application layer behind `production` (or
+  `dev`). `ui/window_untagged.go` replaces the cryptic message of the
+  toolkit with the command that adds the tags.
+- **The `wails build` command line tool cannot build this layout.** Wails
+  v2 compiles the main package at the root of the project, and the entry
+  point of Codixai is `cmd/codixai`. The observed error is
+  `no Go files in /home/barcelo/Codixai`. The spike therefore builds with
+  `go build` and the same tags that the tool would pass
+  (`desktop,production,ui`). `wails.json` stays as the description of the
+  packaging, with `frontend:install` and `frontend:build` empty: Wails v2
+  treats an empty command as "skip", and there is no npm step.
+- **WebKitGTK 4.0 does not link on this machine.** `go build -tags "ui
+  production"` (without `webkit2_41`) fails at the link step with
+  `libjxl.so.0.11, necesario para libwebkit2gtk-4.0.so, no se ha encontrado`
+  and the `JxlDecoder*` symbols of that library undefined. The `webkit2_41`
+  tag links WebKitGTK 4.1, which is installed and links, so the table uses
+  it. The release notes of the variant have to name the WebKitGTK library
+  the binary was built against.
+- **The generated Wails wrappers must stay out of the embedded assets.**
+  The first `wails build` attempt wrote `wailsjs/runtime/*` to the
+  `wailsjsdir` of `wails.json`, which pointed at `ui/assets/wailsjs`; the
+  `go:embed all:assets` directive embedded those files and the measured
+  binary grew by 24,576 B (14,814,904 B instead of 14,790,328 B). The
+  directory was removed and `wailsjsdir` now points at `./ui/wailsjs`,
+  outside the embed, with a `ui/.gitignore` entry. The static frontend never
+  imports the generated wrappers: it loads `/wails/ipc.js` and
+  `/wails/runtime.js` from the asset server.
 
 ---
 

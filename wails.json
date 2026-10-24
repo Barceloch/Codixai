@@ -1,0 +1,18 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "codixai",
+  "outputfilename": "codixai",
+  "assetdir": "./ui/assets",
+  "frontend:dir": "./ui/assets",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "wailsjsdir": "./ui/wailsjs",
+  "info": {
+    "companyName": "Codixai",
+    "productName": "Codixai",
+    "productVersion": "0.1.0",
+    "comments": "Local first verifier of the work done in a repository."
+  }
+}

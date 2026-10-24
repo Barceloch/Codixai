@@ -958,7 +958,7 @@ Antes de fijar dependencias o comenzar la fase de análisis, el agente debe revi
 8. Proveedores de IA que se soportarán, si se incorporan.
 9. Mecanismo exacto de integración de MCP, OpenCode y Gentle-Shell tras verificar sus APIs actuales.
 10. Formatos de informes de pruebas aceptados como evidencia aportada (por ejemplo, JUnit XML, `go test -json`, TAP) y reglas de vinculación a una revisión.
-11. Versión de Wails (v2 estable o v3 beta, que ofrece servicios tipados y modo servidor) y política de actualización; decidir con el spike 7.0 y registrar en un ADR. No mezclar APIs de ambas versiones.
+11. Versión de Wails (v2 estable o v3 beta, que ofrece servicios tipados y modo servidor) y política de actualización; decidir con el spike 7.0 y registrar en un ADR. No mezclar APIs de ambas versiones. **Resuelta el 2026-10-22: Wails v2**, con el módulo fijado a la versión de la CLI instalada (ADR 0011 del repositorio). La política de actualización del par módulo/CLI queda registrada en el mismo ADR.
 12. Si se incluye un modo servidor local (navegador en loopback) además de la ventana de escritorio, y con qué controles de seguridad.
 13. Política de distribución de la variante con UI (binario único CLI más UI frente a solo-CLI como predeterminada) y plataformas soportadas para la UI. **Resuelta el 2026-10-22: binario único CLI más UI** (ADR 0010 del repositorio). Las plataformas soportadas para la UI siguen pendientes.
 14. Idiomas de la interfaz (español, inglés) y política de traducción.
@@ -976,6 +976,7 @@ Estas decisiones no deben bloquear la creación de la base ejecutable, salvo aqu
 ### Mantenimiento posterior a la versión 0.6.0
 
 - 2026-10-22: el mantenedor decide que el artefacto publicado es un **binario único con la CLI y la interfaz gráfica** (decisión 13 resuelta, ADR 0010 del repositorio).
+- 2026-10-22: el mantenedor elige **Wails v2** para la interfaz gráfica y **pnpm** como gestor de paquetes del frontend; el módulo y la CLI avanzarán como par coherente (ADR 0011 del repositorio).
 - 2026-10-20: el mantenedor confirma la licencia **MIT** y resuelve la decisión pendiente 2. El repositorio publica el archivo `LICENSE` con el texto íntegro de la licencia. La decisión está registrada en el ADR 0004 del repositorio, junto con la URL del repositorio y el camino del módulo.
 
 ### Versión 0.6.0 respecto a 0.5.0

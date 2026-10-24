@@ -66,6 +66,7 @@ func NewRootCommand(env *Env) *Command {
 	root.AddCommand(newBaselineCommand(env))
 	root.AddCommand(newVerifyCommand(env))
 	root.AddCommand(newInitCommand(env))
+	root.AddCommand(newUICommand(env))
 	root.AddCommand(newVersionCommand(env))
 	root.AddCommand(newHelpCommand(root))
 	return root

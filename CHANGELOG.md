@@ -165,14 +165,33 @@ branch.
   [`0010`](docs/decisions/0010-distribution-policy-of-the-variants.md) (the
   distribution policy of the variants).
 
+### Added — Phase 7, the packaging spike
+
+- **The Wails v2 prototype and the `ui` build variant** (spike 7.0, ADR
+  [`0011`](docs/decisions/0011-wails-version-and-spike-frontend.md)). The
+  adapter lives in `ui/` behind the `ui` build tag: it embeds the static
+  vanilla HTML/JS frontend of `ui/assets` with `go:embed` (no Node.js), binds
+  `ui.App.Audit` to `application.RunAudit` for the worktree or a base
+  revision, and renders the versioned document. `codixai ui` opens the
+  window in that build and answers a usage error with the build command in
+  the CLI only build (exit `2`). The measured cost on Linux amd64 is
+  6,637,046 B and 0.003 s for the CLI only binary against 14,790,328 B and
+  about 0.23 s–0.29 s of window startup for the `ui production` binary; the
+  table and the reproduction commands are in `docs/tasks/phase-7.md` (P7-04).
+
 ### Changed
 
+- **`go.mod` gains the Wails dependency** pinned to
+  `github.com/wailsapp/wails/v2 v2.17.0`, the exact version of the installed
+  command line tool, with its transitive tree. The dependency is reachable
+  only from the `ui` build: the default build keeps 138 packages and compiles
+  with `CGO_ENABLED=0`.
 - **The specification is adopted in its version 0.6.0.** It adds the local
   graphical interface (Wails, Svelte and daisyUI) as Phase 7, the
   requirements that hold from Phase 0, the rules of the section 17.9 and the
   pending decisions 11 to 14. The architecture of the project already
-  satisfies the requirements of the section 8.7; the interface itself does
-  not exist.
+  satisfies the requirements of the section 8.7; the spike of the interface
+  exists behind the `ui` tag, and the screens do not.
 - **The license is the MIT License**, confirmed by the maintainer on
   2026-10-20 and recorded in the ADR 0004. The `LICENSE` file holds its
   verbatim text.
