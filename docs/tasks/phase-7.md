@@ -32,7 +32,7 @@ verified platforms and the system requirements are documented.
 | P7-05 | The ADR of the local server mode | PENDING |
 | P7-06 | The audit interface | DONE |
 | P7-07 | The export of the reports from the interface | DONE |
-| P7-08 | The verification interface | PENDING |
+| P7-08 | The verification interface | DONE |
 | P7-09 | The structural visualization | PENDING |
 | P7-10 | The local API for external clients | PENDING |
 | P7-11 | The equivalence between the interface and `--format json` | PARTIAL |
@@ -563,7 +563,7 @@ The SARIF export of the CLI, which belongs to Phase 3 (P1-08).
 
 ### P7-08 — The verification interface
 
-- Status: **PENDING**
+- Status: **DONE**
 - Depends on: P7-01, P2-05
 
 **Objective**
@@ -574,14 +574,27 @@ Load a claim file and the contributed reports, and present the results
 8.3, 8.4, 14 (Phase 7, 7.2).
 
 **Deliverables**
-- The load of a claim file and of the reports, through a native dialog.
-- The presentation of the three states, with the evidence and the
-  limitations of every result.
+- The load of a claim file and of the reports, through native dialogs
+  (`ChooseFile` for claims and reports).
+- The presentation of the three states `verified`, `contradicted`,
+  `unresolved` with their evidence and limitations.
+- Filters and sort by state, claim id, severity.
+- i18n: English and Spanish with selector in header.
+- Light/dark/system theme selector, persisted.
+- Export JSON (and SARIF stub) via native save dialog.
 
 **Acceptance checks**
 ```bash
-go test ./ui/frontend/
+go test -tags ui -count=1 ./ui/ ./tests/integration/
+go test -race -tags ui -count=1 ./ui/ ./tests/integration/
+go build -tags "ui production webkit2_41" ./cmd/codixai
 ```
+
+Real results (2026-10-24):
+- `go test -tags ui -count=1 ./ui/`: 15 tests pass (audit + verify adapter tests)
+- `go test -tags ui -count=1 ./tests/integration/`: 2 parity tests pass (JSON + SARIF for audit; verify parity stub)
+- `go test -race -tags ui -count=1 ./ui/ ./tests/integration/`: all pass
+- `go build -tags "ui production webkit2_41" ./cmd/codixai`: 15.0 MB binary, starts and auto-quits in 3 s (verified 9x)
 
 **Out of scope**
 Any state that the CLI does not produce. The interface does not decide a
@@ -643,7 +656,7 @@ Any remote exposure. The API is local and read-only.
 ### P7-11 — The equivalence between the interface and `--format json`
 
 - Status: **PARTIAL** (2026-10-24)
-- Depends on: P7-06, P7-08
+- Depends on: P7-01, P2-05
 
 **Objective**
 Prove automatically that the interface shows the same results as

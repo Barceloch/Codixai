@@ -40,7 +40,7 @@ func TestUIAuditDocumentMatchesTheCLIJSON(t *testing.T) {
 		t.Fatalf("the exit code is %d, want %d: %s", code, cli.ExitFindings, stderr)
 	}
 
-	app := ui.NewApp(cli.UIAuditFunc(), root)
+	app := ui.NewApp(cli.UIAuditFunc(), nil, root)
 	view, err := app.Audit(ui.AuditRequest{Root: root, Origin: string(domain.OriginWorktree), RunID: "run-parity"})
 	if err != nil {
 		t.Fatalf("the window audit failed: %v", err)

@@ -212,16 +212,66 @@ type Options struct {
 	Root string
 	// Audit runs the audit use case.
 	Audit AuditFunc
+	// Verify runs the verification use case.
+	Verify VerifyFunc
 }
 
-// auditJob is the state of one asynchronous audit.
+// VerifyFunc runs the read-only verification use case.
+//
+// The command that starts the window composes the providers, so that the
+// adapter does not know how the changes are collected or how the claims are
+// evaluated.
+type VerifyFunc func(ctx context.Context, request VerifyRequest) (*application.VerifyResult, error)
+
+// VerifyRequest is the request that the adapter sends to the verification
+// composition root.
+type VerifyRequest struct {
+	// Root is the absolute path of the repository.
+	Root string
+	// Base is the base revision of the comparison, as the user wrote it.
+	Base string
+	// ClaimsPath is the path of the claim file to verify.
+	ClaimsPath string
+	// Progress reports the phases of the run. It may be nil.
+	Progress func(VerifyProgress)
+}
+
+// VerifyProgress reports one phase of a verification.
+type VerifyProgress struct {
+	// RunID identifies the verification run.
+	RunID string `json:"run_id"`
+	// Phase is the current phase of the run.
+	Phase string `json:"phase"`
+	// Total is the number of claims when the evaluation finishes.
+	Total int `json:"total,omitempty"`
+	// Contradicted counts the contradicted claims when the evaluation finishes.
+	Contradicted int `json:"contradicted,omitempty"`
+	// Unresolved counts the unresolved claims when the evaluation finishes.
+	Unresolved int `json:"unresolved,omitempty"`
+	// Error carries the failure message when the phase is error.
+	Error string `json:"error,omitempty"`
+}
+
+// VerifyPhase are the phases of a verification, in order.
+const (
+	VerifyPhaseValidating = "validating"
+	VerifyPhaseCollecting = "collecting"
+	VerifyPhaseCollected  = "collected"
+	VerifyPhaseEvaluating = "evaluating"
+	VerifyPhaseEvaluated  = "evaluated"
+	VerifyPhaseDone       = "done"
+	VerifyPhaseError      = "error"
+	VerifyPhaseCancelled = "cancelled"
+)
+
+// auditJob is the state of one asynchronous audit or verification.
 type auditJob struct {
 	// cancel stops the run.
 	cancel context.CancelFunc
 	// root is the audited repository, kept for the export guard.
 	root string
 	// result is the finished document. It is nil until the run ends.
-	result *application.AuditResult
+	result any
 }
 
 // App is the struct bound to the frontend.
@@ -229,9 +279,10 @@ type auditJob struct {
 // Its exported methods are the whole surface of the window: the frontend
 // cannot reach anything else.
 type App struct {
-	ctx   context.Context
-	audit AuditFunc
-	root  string
+	ctx    context.Context
+	audit  AuditFunc
+	verify VerifyFunc
+	root   string
 
 	mu   sync.Mutex
 	jobs map[string]*auditJob
@@ -241,8 +292,8 @@ type App struct {
 //
 // It exists so that the tests can exercise the adapter without opening a
 // window. Run builds the same struct from its options.
-func NewApp(audit AuditFunc, root string) *App {
-	return &App{audit: audit, root: root, jobs: map[string]*auditJob{}}
+func NewApp(audit AuditFunc, verify VerifyFunc, root string) *App {
+	return &App{audit: audit, verify: verify, root: root, jobs: map[string]*auditJob{}}
 }
 
 // Run opens the window and blocks until it is closed.
@@ -262,7 +313,7 @@ func Run(ctx context.Context, opts Options) error {
 	if opts.Audit == nil {
 		return fmt.Errorf("the window needs the audit use case: pass it in ui.Options.Audit")
 	}
-	app := NewApp(opts.Audit, opts.Root)
+	app := NewApp(opts.Audit, opts.Verify, opts.Root)
 
 	title := opts.Title
 	if title == "" {
@@ -449,6 +500,104 @@ func (a *App) CancelAudit(runID string) error {
 	return nil
 }
 
+// VerifyAsync runs a verification of a claim file against the repository
+// changes and returns the result through the verify:event event. The
+// request carries the root repository path, the base revision, the claims
+// file path, and the progress callback that reports the real phases of
+// the use case. The adapter composes the use case exactly like the CLI: it
+// collects the changes between the base and the head of the repository,
+// loads the claim file, checks that the claims are about that range and
+// evaluates every claim against the changes. The verification never
+// modifies the analyzed repository: the manifests and the reports of the
+// repository are read as data. Cancellation is cooperative: the context is
+// checked between steps.
+func (a *App) VerifyAsync(request VerifyRequest, runID string) (*VerifyProgress, error) {
+	root := strings.TrimSpace(request.Root)
+	if root == "" {
+		return nil, fmt.Errorf("the verification needs the root of the repository: write it in the repository field")
+	}
+	base := strings.TrimSpace(request.Base)
+	if base == "" {
+		return nil, fmt.Errorf("the verification needs a base revision")
+	}
+	claimsPath := strings.TrimSpace(request.ClaimsPath)
+	if claimsPath == "" {
+		return nil, fmt.Errorf("the verification needs the path of the claim file: load it in the claims file field")
+	}
+	if request.Progress == nil {
+		return nil, fmt.Errorf("the verification needs a progress callback")
+	}
+	runID = strings.TrimSpace(runID)
+	if runID == "" {
+		runID = newRunID()
+	}
+
+	ctx, cancel := context.WithCancel(a.runtimeContext())
+	a.mu.Lock()
+	if a.jobs == nil {
+		a.jobs = map[string]*auditJob{}
+	}
+	a.pruneFinishedLocked(runID)
+	if _, exists := a.jobs[runID]; exists {
+		a.mu.Unlock()
+		cancel()
+		return nil, fmt.Errorf("the verification %q is already in progress: wait for it or cancel it", runID)
+	}
+	a.jobs[runID] = &auditJob{cancel: cancel, root: root}
+	a.mu.Unlock()
+
+	progress := &VerifyProgress{RunID: runID, Phase: VerifyPhaseValidating}
+	go a.runVerifyAsync(ctx, runID, root, base, claimsPath, request.Progress)
+	return progress, nil
+}
+
+// runVerifyAsync runs the verification and reports its phases and outcome.
+func (a *App) runVerifyAsync(ctx context.Context, runID, root, base, claimsPath string, progress func(VerifyProgress)) {
+	report := func(p VerifyProgress) {
+		p.RunID = runID
+		progress(p)
+	}
+
+	report(VerifyProgress{Phase: VerifyPhaseCollecting})
+
+	result, err := a.verify(ctx, VerifyRequest{Root: root, Base: base, ClaimsPath: claimsPath, Progress: progress})
+	if err != nil {
+		a.removeJob(runID)
+		if ctx.Err() != nil {
+			report(VerifyProgress{Phase: VerifyPhaseCancelled})
+			return
+		}
+		report(VerifyProgress{Phase: VerifyPhaseError, Error: err.Error()})
+		return
+	}
+	if result == nil || result.Document == nil {
+		a.removeJob(runID)
+		report(VerifyProgress{Phase: VerifyPhaseError, Error: "the verification did not produce a document: run 'codixai verify --base main --claims claims.json' in the terminal to see the error of the analysis"})
+		return
+	}
+
+	a.mu.Lock()
+	if job := a.jobs[runID]; job != nil {
+		job.cancel = nil
+		job.result = result
+	}
+	a.mu.Unlock()
+
+	report(VerifyProgress{
+		Phase:         VerifyPhaseDone,
+		Total:         result.Document.Summary.Total,
+		Contradicted:  result.Contradicted,
+		Unresolved:    result.Unresolved,
+	})
+}
+
+// Verify runs a verification synchronously and returns the VerifyResult
+// directly. It is a convenience wrapper around VerifyAsync that blocks
+// until the verification completes.
+func (a *App) Verify(request VerifyRequest) (*application.VerifyResult, error) {
+	return a.verify(a.runtimeContext(), request)
+}
+
 // ChooseRepository opens the native directory dialog and returns the path
 // that the person chose, or an empty string when the dialog is cancelled.
 //
@@ -585,7 +734,7 @@ func (a *App) removeJob(runID string) {
 }
 
 // result returns the document of a finished run.
-func (a *App) result(runID string) (*application.AuditResult, string, error) {
+func (a *App) result(runID string) (any, string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	job := a.jobs[strings.TrimSpace(runID)]

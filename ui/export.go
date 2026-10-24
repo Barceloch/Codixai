@@ -22,17 +22,42 @@ import (
 //
 // The function is exported so that the parity test exercises the exact
 // encoder of the export and not a copy of it.
-func EncodeExport(result *application.AuditResult, format string) ([]byte, error) {
-	if result == nil || result.Run == nil {
-		return nil, fmt.Errorf("the audit did not produce a document to export: run the audit first")
+func EncodeExport(result any, format string) ([]byte, error) {
+	switch r := result.(type) {
+	case *application.AuditResult:
+		if r == nil || r.Run == nil {
+			return nil, fmt.Errorf("the audit did not produce a document to export: run the audit first")
+		}
+		return encodeAuditExport(r, format)
+	case *application.VerifyResult:
+		if r == nil || r.Document == nil {
+			return nil, fmt.Errorf("the verification did not produce a document to export: run the verification first")
+		}
+		return encodeVerifyExport(r, format)
+	default:
+		return nil, fmt.Errorf("unknown export result type %T", result)
 	}
+}
 
+func encodeAuditExport(result *application.AuditResult, format string) ([]byte, error) {
 	switch strings.ToLower(strings.TrimSpace(format)) {
 	case "", "json":
 		return encodeJSON(result.Run, "JSON report")
 	case report.Format:
 		document := report.SARIF(result, report.SARIFOptions{ToolVersion: result.Run.ToolVersion})
 		return encodeJSON(document, "SARIF report")
+	default:
+		return nil, fmt.Errorf("unknown export format %q: choose json or sarif", format)
+	}
+}
+
+func encodeVerifyExport(result *application.VerifyResult, format string) ([]byte, error) {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "", "json":
+		return encodeJSON(result.Document, "JSON report")
+	case report.Format:
+		// TODO: SARIF for verification is not yet implemented
+		return nil, fmt.Errorf("SARIF export for verification is not yet implemented")
 	default:
 		return nil, fmt.Errorf("unknown export format %q: choose json or sarif", format)
 	}

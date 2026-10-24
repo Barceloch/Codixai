@@ -59,7 +59,7 @@ func (f *fakeAudit) run(ctx context.Context, request AuditRunRequest) (*applicat
 // before the use case runs.
 func TestAuditRejectsAnEmptyRoot(t *testing.T) {
 	fake := &fakeAudit{}
-	app := NewApp(fake.run, "")
+	app := NewApp(fake.run, nil, "")
 
 	_, err := app.Audit(AuditRequest{Root: "   ", Origin: "worktree"})
 	if err == nil {
@@ -77,7 +77,7 @@ func TestAuditRejectsAnEmptyRoot(t *testing.T) {
 // are not accepted at the same time.
 func TestAuditRejectsTwoOrigins(t *testing.T) {
 	fake := &fakeAudit{}
-	app := NewApp(fake.run, "")
+	app := NewApp(fake.run, nil, "")
 
 	_, err := app.Audit(AuditRequest{Root: "/tmp/repository", Origin: "worktree", Base: "main"})
 	if err == nil {
@@ -92,7 +92,7 @@ func TestAuditRejectsTwoOrigins(t *testing.T) {
 // rejected.
 func TestAuditRequiresAnOrigin(t *testing.T) {
 	fake := &fakeAudit{}
-	app := NewApp(fake.run, "")
+	app := NewApp(fake.run, nil, "")
 
 	_, err := app.Audit(AuditRequest{Root: "/tmp/repository"})
 	if err == nil {
@@ -107,7 +107,7 @@ func TestAuditRequiresAnOrigin(t *testing.T) {
 // three origins of the use case.
 func TestAuditRejectsAnUnknownOrigin(t *testing.T) {
 	fake := &fakeAudit{}
-	app := NewApp(fake.run, "")
+	app := NewApp(fake.run, nil, "")
 
 	_, err := app.Audit(AuditRequest{Root: "/tmp/repository", Origin: "index"})
 	if err == nil {
@@ -123,7 +123,7 @@ func TestAuditRejectsAnUnknownOrigin(t *testing.T) {
 // it.
 func TestAuditReturnsTheDocumentOfTheUseCase(t *testing.T) {
 	fake := &fakeAudit{}
-	app := NewApp(fake.run, "")
+	app := NewApp(fake.run, nil, "")
 
 	view, err := app.Audit(AuditRequest{Root: "/tmp/repository", Origin: "worktree", RunID: "run-test"})
 	if err != nil {
@@ -149,7 +149,7 @@ func TestAuditReturnsTheDocumentOfTheUseCase(t *testing.T) {
 // TestAuditPassesTheBaseRevision checks the base origin of the window.
 func TestAuditPassesTheBaseRevision(t *testing.T) {
 	fake := &fakeAudit{}
-	app := NewApp(fake.run, "")
+	app := NewApp(fake.run, nil, "")
 
 	view, err := app.Audit(AuditRequest{Root: "/tmp/repository", Origin: "base", Base: "main"})
 	if err != nil {
@@ -166,7 +166,7 @@ func TestAuditPassesTheBaseRevision(t *testing.T) {
 // TestAuditAcceptsTheStagedOrigin checks the third origin of the audit.
 func TestAuditAcceptsTheStagedOrigin(t *testing.T) {
 	fake := &fakeAudit{}
-	app := NewApp(fake.run, "")
+	app := NewApp(fake.run, nil, "")
 
 	view, err := app.Audit(AuditRequest{Root: "/tmp/repository", Origin: "staged"})
 	if err != nil {
@@ -184,7 +184,7 @@ func TestAuditAcceptsTheStagedOrigin(t *testing.T) {
 // request still works.
 func TestAuditAcceptsTheLegacyOriginShape(t *testing.T) {
 	fake := &fakeAudit{}
-	app := NewApp(fake.run, "")
+	app := NewApp(fake.run, nil, "")
 
 	if _, err := app.Audit(AuditRequest{Root: "/tmp/repository", Worktree: true}); err != nil {
 		t.Fatalf("the legacy worktree request failed: %v", err)
@@ -197,7 +197,7 @@ func TestAuditAcceptsTheLegacyOriginShape(t *testing.T) {
 // TestAuditAsyncCancels checks that a running audit is cancellable.
 func TestAuditAsyncCancels(t *testing.T) {
 	fake := &fakeAudit{block: true, started: make(chan struct{}), finished: make(chan struct{})}
-	app := NewApp(fake.run, "")
+	app := NewApp(fake.run, nil, "")
 
 	if _, err := app.AuditAsync(AuditRequest{Root: "/tmp/repository", Origin: "worktree"}, "run-cancel"); err != nil {
 		t.Fatalf("the asynchronous audit did not start: %v", err)
@@ -233,7 +233,7 @@ func TestAuditAsyncCancels(t *testing.T) {
 // bound.
 func TestAuditAsyncForgetsTheFinishedRuns(t *testing.T) {
 	fake := &fakeAudit{}
-	app := NewApp(fake.run, "")
+	app := NewApp(fake.run, nil, "")
 
 	if _, err := app.AuditAsync(AuditRequest{Root: "/tmp/repository", Origin: "worktree"}, "run-one"); err != nil {
 		t.Fatalf("the first audit did not start: %v", err)
@@ -328,7 +328,7 @@ func TestEnsureOutsideRoot(t *testing.T) {
 // TestExportWithoutAFinishedRun checks that the export names the missing
 // run.
 func TestExportWithoutAFinishedRun(t *testing.T) {
-	app := NewApp((&fakeAudit{}).run, "")
+	app := NewApp((&fakeAudit{}).run, nil, "")
 
 	if _, err := app.Export(ExportRequest{RunID: "missing", Format: "json"}); err == nil {
 		t.Fatal("the export accepted an unknown run")
