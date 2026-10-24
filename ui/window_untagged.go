@@ -1,4 +1,4 @@
-//go:build ui && !production && !dev
+//go:build ui && !production && !dev && !bindings
 
 package ui
 

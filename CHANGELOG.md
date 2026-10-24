@@ -179,6 +179,35 @@ branch.
   about 0.23 s–0.29 s of window startup for the `ui production` binary; the
   table and the reproduction commands are in `docs/tasks/phase-7.md` (P7-04).
 
+### Added — Phase 7.1, the audit interface
+
+- **The Svelte 5 frontend of the audit screen** in `frontend/`, built with
+  Vite 8, TypeScript, Tailwind CSS 4 and daisyUI 5, with exact versions and
+  a committed `pnpm-lock.yaml` (ADR
+  [`0011`](docs/decisions/0011-wails-version-and-spike-frontend.md)). The
+  compiled output is embedded in the binary by the `frontend` package, and
+  the old vanilla `ui/assets` spike is removed.
+- **`codixai ui` opens the audit screen.** It selects the repository with a
+  native dialog or the `--root` of the invocation, selects the origin
+  (worktree, staging area or base revision), runs the audit as a cancellable
+  job with the real phases of the use case, and shows the summary and the
+  findings with their filters and order. The detail of a finding carries its
+  evidence, the hunk of the change set, the support level, the limitations
+  and the recommendation.
+- **The interface is bilingual and themed.** English and Spanish texts with
+  the locale persisted in `localStorage`, and light, dark or system theme
+  persisted and applied before the first paint.
+- **The report is exported as JSON or SARIF** through the native save
+  dialog, reusing the exact encoders of the CLI. A path inside the audited
+  repository is rejected.
+- **The parity test** in `tests/integration/ui_parity_test.go` runs the same
+  change through the composition of the window and through the JSON encoder
+  of the CLI and compares the documents; the SARIF bytes are compared
+  exactly.
+- **The TypeScript bindings are generated from the Go adapter** with
+  `go run -tags "ui bindings" ./cmd/codixai ui --root .`; no type is written
+  by hand. `svelte/no-at-html-tags` is an error in the frontend lint.
+
 ### Changed
 
 - **`go.mod` gains the Wails dependency** pinned to
@@ -190,8 +219,8 @@ branch.
   graphical interface (Wails, Svelte and daisyUI) as Phase 7, the
   requirements that hold from Phase 0, the rules of the section 17.9 and the
   pending decisions 11 to 14. The architecture of the project already
-  satisfies the requirements of the section 8.7; the spike of the interface
-  exists behind the `ui` tag, and the screens do not.
+  satisfies the requirements of the section 8.7; the audit screen of the
+  interface exists behind the `ui` tag, and the other screens do not.
 - **The license is the MIT License**, confirmed by the maintainer on
   2026-10-20 and recorded in the ADR 0004. The `LICENSE` file holds its
   verbatim text.
@@ -249,9 +278,11 @@ branch.
   are not excluded from the claims.
 - The corpus of the claims is synthetic. The diffs were written by hand and
   are not diffs produced by external agents.
-- There is no graphical interface: no `codixai ui` command, no Wails adapter
-  and no Svelte frontend. The interface belongs to Phase 7, and the `ui`
-  build variant does not exist yet.
+- The graphical interface covers the audit screen only: the verification
+  screen, the structural visualization and the local API of Phase 7 do not
+  exist. The window was not reviewed visually in this environment, and the
+  default WebKitGTK 4.0 link fails on the development machine because the
+  system library misses `libjxl.so.0.11`; the `webkit2_41` build links.
 - Only Linux was exercised in the development environment. The macOS and
   Windows builds are defined in CI but their results have not been observed.
 - No release has been published: there is no tag, no packaged binary and no

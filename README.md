@@ -1,5 +1,7 @@
 # Codixai
 
+[![Built with Gentle-AI](https://raw.githubusercontent.com/Gentleman-Programming/gentle-ai/main/docs/assets/brand/built-with-gentle-ai.png)](https://github.com/Gentleman-Programming/gentle-ai)
+
 Codixai is a local-first command line tool that audits the changes of a Git
 repository against a deterministic catalog of rules. It is built for one
 audience in particular: developers who review work produced by AI coding
@@ -39,7 +41,12 @@ What exists today:
   fingerprint that survives the movement of the code, and the
   `baseline create` command that writes it;
 - the `report` command and the SARIF 2.1.0 export of the new findings, with
-  the fingerprint of the baseline in `partialFingerprints`.
+  the fingerprint of the baseline in `partialFingerprints`;
+- the `codixai ui` command behind the `ui` build tag: a native Wails v2
+  window with a Svelte 5 frontend that audits a repository through the same
+  use case as `codixai audit`, with the repository picker, the three origins,
+  cancellable runs with real phases, the findings list and their evidence,
+  the English and Spanish texts and the light and dark themes.
 
 What does **not** exist today:
 
@@ -47,7 +54,6 @@ What does **not** exist today:
   `find`, `refs` or `deps` commands;
 - no MCP server;
 - no semantic resolution: every rule is at most `syntactic`;
-- no graphical interface, no `codixai ui` command and no `ui` build variant;
 - no verification of the behavior of a change: the `api_unchanged` and the
   `behavior_preserved` claims are always `unresolved`;
 - no released version and no published binary.
@@ -106,6 +112,30 @@ building:
 ```bash
 go run ./cmd/codixai --help
 ```
+
+### The graphical interface
+
+The `ui` build variant adds the native window. It needs Node.js 20.19 or
+later, pnpm 10 and the WebKitGTK development libraries of the platform. The
+frontend is built once and embedded in the binary:
+
+```bash
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir frontend build
+go build -tags "ui production webkit2_41" ./cmd/codixai
+./codixai ui --root .
+```
+
+The `webkit2_41` tag selects WebKitGTK 4.1; the default links WebKitGTK 4.0.
+The TypeScript bindings are generated from the Go adapter, never written by
+hand:
+
+```bash
+go run -tags "ui bindings" ./cmd/codixai ui --root .
+```
+
+The default build (`go build ./cmd/codixai`) neither needs Node.js nor
+compiles Wails, and it does not include the window.
 
 ## Quick start
 
@@ -392,7 +422,7 @@ use the built binary when you need to observe code `3` in a script.
 ```text
 codixai <command> [flags]
 
-commands: audit, report, baseline create, verify, init, version, help
+commands: audit, report, baseline create, verify, init, ui, version, help
 
 global flags:
   --root <value>    Root of the analyzed repository. Defaults to the current directory.
@@ -431,7 +461,9 @@ init flags:
 Exactly one origin must be selected by `audit`, `report` and `baseline
 create`: `--base`, `--staged` or `--worktree`. The `verify` command needs both
 `--base` and `--claims`; a missing one is an invalid invocation and the exit
-code is `2`.
+code is `2`. The `ui` command opens the window of the `ui` build variant and
+takes no arguments besides the global flags; the origin is selected inside
+the window.
 
 ## Rule catalog
 
@@ -520,10 +552,14 @@ the roadmap:
   descriptors carry the rule identifier in `name` and the description in both
   `shortDescription` and `fullDescription`.
 - **No MCP server.** It belongs to Phase 4 and it is not implemented.
-- **No graphical interface.** The `codixai ui` command, the Wails adapter
-  and the Svelte frontend belong to Phase 7 and do not exist. The
-  architecture that would allow them is already in place and is verified by
-  a test.
+- **The graphical interface covers the audit screen only.** The `ui` build
+  variant exists: `codixai ui` opens a Wails v2 window with a Svelte 5
+  frontend that audits a repository and shows the findings with their
+  evidence. The verification screen, the structural visualization and the
+  local API of Phase 7 do not exist. The interface is checked by the
+  TypeScript checks, the Go tests and the parity test against
+  `--format json`; a visual review by a person is still required and was not
+  performed in this environment.
 - **No cross-platform verification.** Only Linux was exercised in the
   development environment. macOS and Windows builds are defined in CI but
   their results have not been observed yet.
@@ -547,7 +583,7 @@ The phases follow the product specification
 | 4 | First agent integrations and MCP | Not started |
 | 5 | Structural analysis and impact on demand | Not started |
 | 6 | Wider rules and semantic analysis | Not started |
-| 7 | The local graphical interface (Wails, Svelte and daisyUI) | Not started |
+| 7 | The local graphical interface (Wails, Svelte and daisyUI) | In progress: the audit window (`codixai ui`) exists; the other screens do not |
 
 The exit criterion of Phase 1 is not reached yet: the corpus of real diffs
 produced by external agents, the false-positive report and the decision gate
@@ -569,11 +605,14 @@ platform was exercised. The workflow is described in
 [`docs/guides/ci-integration.md`](docs/guides/ci-integration.md).
 
 Phase 7 is the local graphical interface: a native window built with Wails
-and a frontend built with Svelte, Tailwind and daisyUI, launched with
-`codixai ui` and shipped in the same binary as the CLI. Its spike 7.0
-(the version of Wails, the packaging, the builds per platform and the
-distribution) may be started after Phase 3, because the risk is in the
-packaging and not in the screens. None of it exists today.
+v2 and a frontend built with Svelte 5, Tailwind and daisyUI, launched with
+`codixai ui` and shipped in the same binary as the CLI. The audit screen
+exists (P7-06 and P7-07): it selects the repository and the origin, runs the
+audit as a cancellable job with real phases, shows the findings with their
+evidence, the hunk of the diff, the support level, the limitations and the
+recommendation, and exports the report as JSON or SARIF. The verification
+screen, the structural visualization and the local server mode are still
+pending.
 
 ## Documentation
 

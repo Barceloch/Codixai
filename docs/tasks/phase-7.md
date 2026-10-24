@@ -4,11 +4,13 @@ The scope and the exit criteria of this phase are fixed by the
 specification, section 14, "Fase 7", and by the section 8. This file turns
 them into atomic tasks with executable acceptance checks.
 
-**The spike 7.0 exists; the interface does not.** The `ui` build variant,
-the `codixai ui` command and the Wails v2 prototype are implemented behind
-the `ui` build tag (the spike of P7-01 to P7-04, see the results below). The
-screens of P7-06 to P7-11, the Svelte stack and the local server mode are
-not implemented. The architecture that will hold them exists: the
+**The audit screen exists; the other screens do not.** The `ui` build
+variant, the `codixai ui` command and the Wails v2 prototype are implemented
+behind the `ui` build tag (the spike of P7-01 to P7-04). The audit screen of
+P7-06 and the export of P7-07 are implemented with the Svelte 5, Vite,
+Tailwind and daisyUI stack. The verification screen (P7-08), the structural
+visualization (P7-09), the local API (P7-10) and the local server mode
+(P7-05) are not implemented. The architecture that holds them exists: the
 application layer is independent of the presentation, the results are
 versioned documents, and `internal/application/architecture_test.go`
 protects those two facts.
@@ -28,12 +30,12 @@ verified platforms and the system requirements are documented.
 | P7-03 | The variant without the tag | DONE |
 | P7-04 | The size and the startup time of both variants | DONE |
 | P7-05 | The ADR of the local server mode | PENDING |
-| P7-06 | The audit interface | PENDING |
-| P7-07 | The export of the reports from the interface | PENDING |
+| P7-06 | The audit interface | DONE |
+| P7-07 | The export of the reports from the interface | DONE |
 | P7-08 | The verification interface | PENDING |
 | P7-09 | The structural visualization | PENDING |
 | P7-10 | The local API for external clients | PENDING |
-| P7-11 | The equivalence between the interface and `--format json` | PENDING |
+| P7-11 | The equivalence between the interface and `--format json` | PARTIAL |
 
 The spike 7.0 (P7-01 to P7-05) may be started after Phase 3: the risk of
 this phase is in the packaging and in the distribution, not in the screens.
@@ -59,9 +61,11 @@ apply to every task of this file.
    the content of the repository. The lint rule of the frontend has to be
    enabled (for example `svelte/no-at-html-tags` of
    `eslint-plugin-svelte`).
-5. **The frontend dependencies are installed with `npm ci`**, ideally with
-   `--ignore-scripts`. `npm install` is not run when it modifies the
-   lockfile without a confirmation.
+5. **The frontend dependencies are installed with the frozen lockfile**
+   (`pnpm install --frozen-lockfile`, the package manager of the decision
+   [`0011`](../decisions/0011-wails-version-and-spike-frontend.md)).
+   `pnpm install` is not run when it modifies the lockfile without a
+   confirmation.
 6. **Nobody claims that a screen "looks right" without evidence.** It is
    verified with automated tests and, when a visual judgement is needed, a
    person reviews it.
@@ -425,7 +429,7 @@ follows the decision.
 
 ### P7-06 — The audit interface
 
-- Status: **PENDING**
+- Status: **DONE** (2026-10-24)
 - Depends on: P7-01, P1-01
 
 **Objective**
@@ -449,19 +453,70 @@ evidence.
 
 **Acceptance checks**
 ```bash
-go test ./ui/frontend/            # the component and the flow tests
+pnpm --dir frontend check
+pnpm --dir frontend lint
+pnpm --dir frontend build
 go build -tags ui ./cmd/codixai
+go test -tags ui ./ui/
 ```
 
 **Out of scope**
 The export of the reports (P7-07), the verification (P7-08) and the
 visualization (P7-09).
 
+**Result (2026-10-24)**
+
+- The frontend lives in `frontend/`: Svelte 5.57.0, Vite 8.3.0, TypeScript
+  5.9.3, Tailwind CSS 4.3.3 and daisyUI 5.7.42, with exact versions pinned
+  in `package.json` and `pnpm-lock.yaml` committed. The package manager is
+  pnpm, as the decision
+  [`0011`](../decisions/0011-wails-version-and-spike-frontend.md) fixes.
+  `wails.json` builds it with `pnpm install --frozen-lockfile` and
+  `pnpm run build`.
+- The compiled frontend is embedded by the `frontend` package with
+  `//go:embed all:dist`. The directory keeps a `dist/.gitkeep` so that the
+  Go build works before the first `pnpm run build`; the Vite configuration
+  restores the placeholder after every build.
+- The TypeScript types are generated from the Go adapter, never written by
+  hand: `go run -tags "ui bindings" ./cmd/codixai ui --root .` writes
+  `frontend/src/lib/wailsjs`. The bridge (`frontend/src/lib/bridge.ts`) only
+  wraps the generated functions.
+- The screen selects the repository (native dialog with
+  `ChooseRepository`, or the `--root` of the invocation), the three origins
+  (`worktree`, `staged`, `base`), and runs the audit with `AuditAsync`. The
+  phases are the real ones of the use case (`validating`, `collecting`,
+  `collected`, `analyzing`, `analyzed`, `done`), reported by wrappers in
+  `internal/cli/ui_command_ui.go`, and `CancelAudit` stops the run through
+  the context.
+- The list filters and sorts by rule, severity, epistemic status, language
+  and path (`frontend/src/lib/findings.ts`). The detail shows the evidence,
+  the hunk of the change set, the support level, the limitations and the
+  recommendation.
+- The texts are English and Spanish, persisted in `localStorage`
+  (`i18n.svelte.ts`); the theme is light, dark or the system preference,
+  persisted and applied before the first paint (`theme.svelte.ts` and the
+  inline script of `index.html`).
+- `svelte/no-at-html-tags` is an error in `frontend/eslint.config.js`, and
+  `{@html}` is not used.
+- Real results: `pnpm --dir frontend check` reported 0 errors and 0
+  warnings; `pnpm --dir frontend lint` exited 0; `pnpm --dir frontend build`
+  wrote `dist/index.html` and two assets; `go build -tags ui ./cmd/codixai`
+  and `go test -tags ui ./ui/` exited 0. The `ui production` binary built
+  with `webkit2_41` opened the window with
+  `CODIXAI_UI_AUTOQUIT=3s ./codixai ui --root .` and exited with the code
+  `0`; the standard error only carried GTK and WebKit warnings of the
+  environment.
+- **Not verified:** the visual review of the window. The layout, the
+  contrast of both themes and the keyboard navigation were not reviewed by
+  a person. The default WebKitGTK 4.0 link also fails in this environment
+  because the system library is missing `libjxl.so.0.11`; the `webkit2_41`
+  link works.
+
 ---
 
 ### P7-07 — The export of the reports from the interface
 
-- Status: **PENDING**
+- Status: **DONE** (2026-10-24)
 - Depends on: P7-06, P1-08
 
 **Objective**
@@ -476,12 +531,33 @@ never to the analyzed repository.
 
 **Acceptance checks**
 ```bash
-go test ./ui/frontend/
+go test -tags ui ./ui/ ./tests/integration/
+go build -tags ui ./cmd/codixai
 ```
 
 **Out of scope**
-The SARIF export of the CLI, which belongs to Phase 3 (P1-08) and does not
-exist yet.
+The SARIF export of the CLI, which belongs to Phase 3 (P1-08).
+
+**Result (2026-10-24)**
+
+- `ui.App.Export` writes the report of a finished run to the path that the
+  person chooses in the native save dialog. It reuses the result of the run,
+  so it exports exactly the document that the screen shows.
+- `ui.EncodeExport` produces the same bytes as the CLI: the JSON document
+  with the encoder and the indentation of `internal/cli`, and the SARIF
+  document with `report.SARIF`. The function is exported so the parity test
+  exercises the exact encoder of the export.
+- A path inside the audited repository is rejected before writing: the
+  tool never writes into the repository that it reads.
+- The screen offers the two formats once a run finishes, and reports the
+  written path or the cancellation of the dialog.
+- Real results: `go test -tags ui -count=1 ./ui/ ./tests/integration/`
+  exited 0; the parity test compares the normalized JSON document and the
+  SARIF bytes byte for byte. `go build -tags "ui production webkit2_41"
+  ./cmd/codixai` exited 0 and produced the binary.
+- **Not verified:** the native save dialog itself. The adapter is tested
+  through the encoder and the guard, but the dialog needs a graphical
+  session and was not exercised.
 
 ---
 
@@ -566,7 +642,7 @@ Any remote exposure. The API is local and read-only.
 
 ### P7-11 — The equivalence between the interface and `--format json`
 
-- Status: **PENDING**
+- Status: **PARTIAL** (2026-10-24)
 - Depends on: P7-06, P7-08
 
 **Objective**
@@ -582,9 +658,21 @@ through the JSON encoder of the CLI, and compares the two documents.
 
 **Acceptance checks**
 ```bash
-go test ./internal/ui/ ./tests/integration/
+go test -tags ui ./ui/ ./tests/integration/
 ```
 
 **Out of scope**
 A comparison of the screenshots: the contract is the document, not the
 rendering.
+
+**Result (2026-10-24)**
+
+- `tests/integration/ui_parity_test.go` runs the same change through
+  `cli.UIAuditFunc()` (the composition of the window) and through the JSON
+  encoder of the CLI, and compares the two documents after normalizing
+  `generated_at`. The SARIF export is compared byte for byte.
+- The audit half of the criterion is covered. The task is **PARTIAL**
+  because it depends on P7-08, and the verification screen does not exist:
+  there is no verification document to compare yet.
+- Real result: `go test -tags ui -count=1 ./ui/ ./tests/integration/`
+  exited 0.

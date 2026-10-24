@@ -4,9 +4,8 @@
 //
 // The package is built only with the ui tag: the default build of the tool
 // neither compiles it nor reaches Wails, the webview or the embedded
-// assets. It holds the window of the spike, the binding of the read-only
-// audit use case and the static frontend of ui/assets, which is embedded
-// with go:embed.
+// frontend. It holds the window, the bound methods that the Svelte frontend
+// calls, and the embed of the compiled frontend in frontend/dist.
 //
 // The adapter only translates. It validates what arrives from the window,
 // because the frontend is untrusted input, and it delegates every decision
@@ -17,14 +16,19 @@
 // The build tags of the variant are the ones of Wails v2: the window is
 // compiled with "ui production" (or "ui dev"), and the build without the
 // Wails tags reports how to add them instead of failing inside the toolkit.
+// The "ui bindings" combination exists only to generate the TypeScript
+// bindings with the Wails generator; it never opens a window.
 package ui
 
 import (
 	"context"
-	"embed"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/barceloch/codixai/internal/application"
@@ -36,37 +40,115 @@ import (
 // the given duration.
 //
 // It exists for the measurement of the startup time of the ui variant: the
-// spike starts the binary, lets the window reach its first frame and quits
-// without a person closing it. It is empty by default and it never changes
-// the behavior of the window when it is not set.
+// window starts, reaches its first frame and quits without a person closing
+// it. It is empty by default and it never changes the behavior of the window
+// when it is not set.
 const AutoQuitEnv = "CODIXAI_UI_AUTOQUIT"
 
-// assets holds the static frontend of the spike.
+// AuditEventName is the event that carries the progress of an asynchronous
+// audit and its outcome.
+const AuditEventName = "audit:event"
+
+// The phases of an asynchronous audit.
 //
-// The frontend is plain HTML and JavaScript on purpose: the spike measures
-// the packaging of the binary, not a frontend toolchain. The production
-// interface of P7-06 does not reuse these assets.
-//
-//go:embed all:assets
-var assets embed.FS
+// They are the real steps of the use case, not a timer: the change source
+// reports when the changes were collected, the analyzer when the rules were
+// applied, and the adapter when the document is ready. The policy and the
+// baseline of the repository run inside the use case after the analyzer
+// returns, so no phase claims to observe them.
+const (
+	// PhaseValidating means the adapter is validating the request.
+	PhaseValidating = "validating"
+	// PhaseCollecting means the change source is collecting the diff.
+	PhaseCollecting = "collecting"
+	// PhaseCollected means the change source returned the change set.
+	PhaseCollected = "collected"
+	// PhaseAnalyzing means the rule catalog is being applied.
+	PhaseAnalyzing = "analyzing"
+	// PhaseAnalyzed means the rule catalog returned the findings.
+	PhaseAnalyzed = "analyzed"
+	// PhaseDone means the document is ready.
+	PhaseDone = "done"
+	// PhaseCancelled means the person cancelled the run.
+	PhaseCancelled = "cancelled"
+)
+
+// The kinds of an audit event.
+const (
+	// EventProgress carries the progress of a running audit.
+	EventProgress = "progress"
+	// EventDone carries the finished document.
+	EventDone = "done"
+	// EventError carries the failure of the audit.
+	EventError = "error"
+	// EventCancelled reports that the run was cancelled.
+	EventCancelled = "cancelled"
+)
 
 // AuditRequest is the request that the window sends to the audit use case.
 type AuditRequest struct {
 	// Root is the path of the repository to audit.
 	Root string `json:"root"`
+	// Origin selects the changes: worktree, staged or base.
+	//
+	// The field is the preferred one. The Worktree and Staged fields are
+	// kept for the callers of the first prototype and are accepted only
+	// when Origin is empty.
+	Origin string `json:"origin,omitempty"`
 	// Worktree audits the changes that are not committed yet.
-	Worktree bool `json:"worktree"`
+	Worktree bool `json:"worktree,omitempty"`
+	// Staged audits the staging area.
+	Staged bool `json:"staged,omitempty"`
 	// Base is the revision to compare the repository with. It is empty
-	// when the origin is the worktree.
-	Base string `json:"base"`
+	// when the origin is the worktree or the staging area.
+	Base string `json:"base,omitempty"`
+	// RunID identifies the run. The window generates it so that the
+	// progress events and the export refer to the same run. When it is
+	// empty the adapter generates one.
+	RunID string `json:"run_id,omitempty"`
+}
+
+// AuditProgress is one step of an asynchronous audit.
+type AuditProgress struct {
+	// RunID identifies the run that produced the progress.
+	RunID string `json:"run_id"`
+	// Phase is one of the phases of the audit.
+	Phase string `json:"phase"`
+	// ChangedFiles counts the files of the change set, once collected.
+	ChangedFiles int `json:"changed_files,omitempty"`
+	// Findings counts the findings of the analysis, once analyzed.
+	Findings int `json:"findings,omitempty"`
+}
+
+// AuditEvent is the payload of the audit:event event.
+//
+// The window receives one event per progress step and one final event with
+// the document, the error or the cancellation. The frontend never polls the
+// adapter: the events carry the whole state.
+type AuditEvent struct {
+	// RunID identifies the run.
+	RunID string `json:"run_id"`
+	// Kind is progress, done, error or cancelled.
+	Kind string `json:"kind"`
+	// Progress carries the step when Kind is progress.
+	Progress *AuditProgress `json:"progress,omitempty"`
+	// View carries the document when Kind is done.
+	View *AuditView `json:"view,omitempty"`
+	// Error explains the failure when Kind is error.
+	Error string `json:"error,omitempty"`
 }
 
 // AuditView is the result that the window renders.
 //
-// The document is the same versioned document that the command line
-// writes with --format json: the interface never reinterprets a finding,
-// it renders what the use case decided.
+// The Document field is the same versioned document that the command line
+// writes with --format json: the interface never reinterprets a finding, it
+// renders what the use case decided. The other fields are the context that
+// the screen needs to present the document (the origin, the threshold, the
+// counts of the policy and the change set with the hunks of the evidence);
+// they are not part of the document and never change its bytes.
 type AuditView struct {
+	// RunID identifies the run that produced the view.
+	RunID string `json:"run_id"`
 	// SchemaVersion is the version of the schema of the document.
 	SchemaVersion string `json:"schema_version"`
 	// ToolVersion is the version of the tool that produced the document.
@@ -85,8 +167,34 @@ type AuditView struct {
 	Failed bool `json:"failed"`
 	// FailingFindings counts the findings that reach the threshold.
 	FailingFindings int `json:"failing_findings"`
+	// KnownFindings counts the findings that the baseline already knows.
+	KnownFindings int `json:"known_findings"`
+	// SuppressedFindings counts the findings that the configuration
+	// suppresses.
+	SuppressedFindings int `json:"suppressed_findings"`
+	// ExcludedFiles holds the paths that the configuration excludes.
+	ExcludedFiles []string `json:"excluded_files,omitempty"`
 	// Document is the analysis document produced by the use case.
 	Document *domain.AnalysisRun `json:"document"`
+	// Changes is the change set that the analysis inspected. It holds the
+	// hunks that the evidence of a finding references.
+	Changes *domain.ChangeSet `json:"changes,omitempty"`
+}
+
+// AuditRunRequest is the request that the adapter sends to the audit
+// composition root.
+//
+// It is not bound to the frontend: it carries the already validated origin
+// and the callback that reports the real phases of the use case.
+type AuditRunRequest struct {
+	// Root is the absolute path of the repository.
+	Root string
+	// Origin is the selected origin.
+	Origin domain.ChangeOrigin
+	// Base is the base revision, when the origin is base.
+	Base string
+	// Progress reports the phases of the run. It may be nil.
+	Progress func(AuditProgress)
 }
 
 // AuditFunc runs the read-only audit use case.
@@ -94,7 +202,7 @@ type AuditView struct {
 // The command that starts the window composes the providers, so that the
 // adapter does not know how the changes are collected or how the rules are
 // applied.
-type AuditFunc func(ctx context.Context, root string, worktree bool, base string) (*application.AuditResult, error)
+type AuditFunc func(ctx context.Context, request AuditRunRequest) (*application.AuditResult, error)
 
 // Options configures the window.
 type Options struct {
@@ -106,6 +214,16 @@ type Options struct {
 	Audit AuditFunc
 }
 
+// auditJob is the state of one asynchronous audit.
+type auditJob struct {
+	// cancel stops the run.
+	cancel context.CancelFunc
+	// root is the audited repository, kept for the export guard.
+	root string
+	// result is the finished document. It is nil until the run ends.
+	result *application.AuditResult
+}
+
 // App is the struct bound to the frontend.
 //
 // Its exported methods are the whole surface of the window: the frontend
@@ -114,6 +232,17 @@ type App struct {
 	ctx   context.Context
 	audit AuditFunc
 	root  string
+
+	mu   sync.Mutex
+	jobs map[string]*auditJob
+}
+
+// NewApp returns the bound struct of the window.
+//
+// It exists so that the tests can exercise the adapter without opening a
+// window. Run builds the same struct from its options.
+func NewApp(audit AuditFunc, root string) *App {
+	return &App{audit: audit, root: root, jobs: map[string]*auditJob{}}
 }
 
 // Run opens the window and blocks until it is closed.
@@ -133,7 +262,7 @@ func Run(ctx context.Context, opts Options) error {
 	if opts.Audit == nil {
 		return fmt.Errorf("the window needs the audit use case: pass it in ui.Options.Audit")
 	}
-	app := &App{audit: opts.Audit, root: opts.Root}
+	app := NewApp(opts.Audit, opts.Root)
 
 	title := opts.Title
 	if title == "" {
@@ -176,47 +305,418 @@ func (a *App) Root() string { return a.root }
 // resolved by the use case like the command line does, and it never escapes
 // the selected root.
 func (a *App) Audit(request AuditRequest) (*AuditView, error) {
+	origin, base, err := resolveRequestOrigin(request)
+	if err != nil {
+		return nil, err
+	}
 	root := strings.TrimSpace(request.Root)
 	if root == "" {
 		return nil, fmt.Errorf("the audit needs the path of a repository: write it in the repository field")
 	}
-	base := strings.TrimSpace(request.Base)
-	if request.Worktree && base != "" {
-		return nil, fmt.Errorf("the audit takes one origin: choose the worktree or the base revision %q, not both", base)
-	}
-	if !request.Worktree && base == "" {
-		return nil, fmt.Errorf("the audit needs an origin: choose the worktree, or write a base revision such as 'main'")
+
+	runID := strings.TrimSpace(request.RunID)
+	if runID == "" {
+		runID = newRunID()
 	}
 
-	// The runtime context exists once OnStartup has fired. A call that
-	// arrives earlier (a reload of the page during the start) runs with a
-	// background context instead of a nil one.
-	ctx := a.ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	result, err := a.audit(ctx, root, request.Worktree, base)
+	result, err := a.audit(a.runtimeContext(), AuditRunRequest{Root: root, Origin: origin, Base: base})
 	if err != nil {
 		return nil, err
 	}
 	if result == nil || result.Run == nil {
 		return nil, fmt.Errorf("the audit did not produce a document: run 'codixai audit --diff --worktree' in the terminal to see the error of the analysis")
 	}
+	a.storeResult(runID, root, result)
+	return a.view(runID, root, origin, base, result), nil
+}
 
-	origin := string(domain.OriginWorktree)
-	if base != "" {
-		origin = string(domain.OriginBase)
+// AuditAsync starts an audit and returns its first progress event.
+//
+// The run happens in its own goroutine and reports every phase through the
+// audit:event event. The method returns immediately, so the window stays
+// responsive and can cancel the run with CancelAudit.
+func (a *App) AuditAsync(request AuditRequest, runID string) (*AuditEvent, error) {
+	origin, base, err := resolveRequestOrigin(request)
+	if err != nil {
+		return nil, err
 	}
+	root := strings.TrimSpace(request.Root)
+	if root == "" {
+		return nil, fmt.Errorf("the audit needs the path of a repository: write it in the repository field")
+	}
+	runID = strings.TrimSpace(runID)
+	if runID == "" {
+		runID = strings.TrimSpace(request.RunID)
+	}
+	if runID == "" {
+		runID = newRunID()
+	}
+
+	ctx, cancel := context.WithCancel(a.runtimeContext())
+	a.mu.Lock()
+	if a.jobs == nil {
+		a.jobs = map[string]*auditJob{}
+	}
+	a.pruneFinishedLocked(runID)
+	if _, exists := a.jobs[runID]; exists {
+		a.mu.Unlock()
+		cancel()
+		return nil, fmt.Errorf("the run %q is already in progress: wait for it or cancel it", runID)
+	}
+	a.jobs[runID] = &auditJob{cancel: cancel, root: root}
+	a.mu.Unlock()
+
+	progress := &AuditProgress{RunID: runID, Phase: PhaseValidating}
+	go a.runAsync(ctx, runID, root, origin, base)
+	return &AuditEvent{RunID: runID, Kind: EventProgress, Progress: progress}, nil
+}
+
+// runAsync runs the audit and reports its phases and its outcome.
+func (a *App) runAsync(ctx context.Context, runID, root string, origin domain.ChangeOrigin, base string) {
+	report := func(progress AuditProgress) {
+		progress.RunID = runID
+		a.emit(AuditEvent{RunID: runID, Kind: EventProgress, Progress: &progress})
+	}
+
+	result, err := a.audit(ctx, AuditRunRequest{
+		Root:   root,
+		Origin: origin,
+		Base:   base,
+		Progress: func(progress AuditProgress) {
+			report(progress)
+		},
+	})
+	if err != nil {
+		a.removeJob(runID)
+		if ctx.Err() != nil {
+			a.emit(AuditEvent{
+				RunID:    runID,
+				Kind:     EventCancelled,
+				Progress: &AuditProgress{RunID: runID, Phase: PhaseCancelled},
+			})
+			return
+		}
+		a.emit(AuditEvent{RunID: runID, Kind: EventError, Error: err.Error()})
+		return
+	}
+	if result == nil || result.Run == nil {
+		a.removeJob(runID)
+		a.emit(AuditEvent{
+			RunID: runID,
+			Kind:  EventError,
+			Error: "the audit did not produce a document: run 'codixai audit --diff --worktree' in the terminal to see the error of the analysis",
+		})
+		return
+	}
+
+	a.mu.Lock()
+	if job := a.jobs[runID]; job != nil {
+		job.cancel = nil
+		job.result = result
+	}
+	a.mu.Unlock()
+
+	view := a.view(runID, root, origin, base, result)
+	a.emit(AuditEvent{
+		RunID: runID,
+		Kind:  EventDone,
+		View:  view,
+		Progress: &AuditProgress{
+			RunID:        runID,
+			Phase:        PhaseDone,
+			ChangedFiles: view.ChangedFiles,
+			Findings:     len(view.Document.Findings),
+		},
+	})
+}
+
+// CancelAudit cancels a running audit.
+//
+// The cancellation is cooperative: the use case checks the context between
+// the files, so a run that is finishing may still deliver its document.
+func (a *App) CancelAudit(runID string) error {
+	runID = strings.TrimSpace(runID)
+	if runID == "" {
+		return fmt.Errorf("the cancellation needs the identifier of the run")
+	}
+	a.mu.Lock()
+	job := a.jobs[runID]
+	a.mu.Unlock()
+	if job == nil || job.cancel == nil {
+		return fmt.Errorf("the run %q is not in progress: start an audit before cancelling it", runID)
+	}
+	job.cancel()
+	return nil
+}
+
+// ChooseRepository opens the native directory dialog and returns the path
+// that the person chose, or an empty string when the dialog is cancelled.
+//
+// The title comes from the frontend so that the dialog speaks the language
+// of the interface.
+func (a *App) ChooseRepository(title string) (string, error) {
+	ctx := a.ctx
+	if ctx == nil {
+		return "", fmt.Errorf("the window is not ready yet: wait for it to open and try again")
+	}
+	title = strings.TrimSpace(title)
+	if title == "" {
+		title = "Select the repository to audit"
+	}
+	return runtime.OpenDirectoryDialog(ctx, runtime.OpenDialogOptions{Title: title})
+}
+
+// ExportRequest describes the report to write.
+type ExportRequest struct {
+	// RunID identifies the run whose document is exported.
+	RunID string `json:"run_id"`
+	// Format is json or sarif.
+	Format string `json:"format"`
+	// SuggestedName is the name that the save dialog proposes.
+	SuggestedName string `json:"suggested_name,omitempty"`
+	// Title is the title of the save dialog, in the language of the
+	// interface.
+	Title string `json:"title,omitempty"`
+}
+
+// Export writes the document of a finished run to the path that the person
+// chooses in the native save dialog.
+//
+// The path is the only place the adapter writes to. A path inside the
+// audited repository is rejected: the tool never writes into the repository
+// that it reads.
+func (a *App) Export(request ExportRequest) (string, error) {
+	result, root, err := a.result(request.RunID)
+	if err != nil {
+		return "", err
+	}
+	data, err := EncodeExport(result, request.Format)
+	if err != nil {
+		return "", err
+	}
+
+	ctx := a.ctx
+	if ctx == nil {
+		return "", fmt.Errorf("the window is not ready yet: wait for it to open and try again")
+	}
+
+	format := strings.ToLower(strings.TrimSpace(request.Format))
+	if format == "" {
+		format = "json"
+	}
+	extension := exportExtension(format)
+	suggested := strings.TrimSpace(request.SuggestedName)
+	if suggested == "" {
+		suggested = "codixai-audit" + extension
+	}
+	if !strings.HasSuffix(strings.ToLower(suggested), extension) {
+		suggested += extension
+	}
+	title := strings.TrimSpace(request.Title)
+	if title == "" {
+		title = "Save the audit report"
+	}
+
+	path, err := runtime.SaveFileDialog(ctx, runtime.SaveDialogOptions{
+		Title:           title,
+		DefaultFilename: suggested,
+		Filters: []runtime.FileFilter{{
+			DisplayName: strings.ToUpper(strings.TrimPrefix(extension, ".")),
+			Pattern:     "*" + extension,
+		}},
+	})
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(path) == "" {
+		return "", nil
+	}
+	if err := ensureOutsideRoot(path, root); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return "", fmt.Errorf("cannot write the report to %s: %w", path, err)
+	}
+	return path, nil
+}
+
+// runtimeContext returns the context of the runtime, or a background
+// context when a call arrives before OnStartup.
+func (a *App) runtimeContext() context.Context {
+	if a.ctx != nil {
+		return a.ctx
+	}
+	return context.Background()
+}
+
+// storeResult keeps the document of a synchronous run for its export.
+func (a *App) storeResult(runID, root string, result *application.AuditResult) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.jobs == nil {
+		a.jobs = map[string]*auditJob{}
+	}
+	a.pruneFinishedLocked(runID)
+	a.jobs[runID] = &auditJob{root: root, result: result}
+}
+
+// pruneFinishedLocked forgets the finished runs except the one to keep.
+//
+// A window can run many audits in one session. Each result holds the
+// document and the change set, so keeping every finished run would grow
+// without bound. The screen only exports the run it shows, so the older
+// finished runs are dropped when a new one starts.
+func (a *App) pruneFinishedLocked(keep string) {
+	for id, job := range a.jobs {
+		if id == keep || job == nil {
+			continue
+		}
+		if job.cancel == nil && job.result != nil {
+			delete(a.jobs, id)
+		}
+	}
+}
+
+// removeJob forgets a run that did not produce a document.
+func (a *App) removeJob(runID string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	delete(a.jobs, runID)
+}
+
+// result returns the document of a finished run.
+func (a *App) result(runID string) (*application.AuditResult, string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	job := a.jobs[strings.TrimSpace(runID)]
+	if job == nil || job.result == nil {
+		return nil, "", fmt.Errorf("the run %q has no result to export: run the audit first", runID)
+	}
+	return job.result, job.root, nil
+}
+
+// emit sends an event to the window.
+func (a *App) emit(event AuditEvent) {
+	ctx := a.ctx
+	if ctx == nil {
+		return
+	}
+	runtime.EventsEmit(ctx, AuditEventName, event)
+}
+
+// view builds the renderable result of a run.
+func (a *App) view(runID, root string, origin domain.ChangeOrigin, base string, result *application.AuditResult) *AuditView {
 	return &AuditView{
-		SchemaVersion:   result.Run.SchemaVersion,
-		ToolVersion:     result.Run.ToolVersion,
-		Root:            root,
-		Origin:          origin,
-		Base:            base,
-		ChangedFiles:    result.ChangedFiles,
-		FailOn:          result.FailOn,
-		Failed:          result.Failed,
-		FailingFindings: result.FailingFindings,
-		Document:        result.Run,
-	}, nil
+		RunID:              runID,
+		SchemaVersion:      result.Run.SchemaVersion,
+		ToolVersion:        result.Run.ToolVersion,
+		Root:               root,
+		Origin:             string(origin),
+		Base:               base,
+		ChangedFiles:       result.ChangedFiles,
+		FailOn:             result.FailOn,
+		Failed:             result.Failed,
+		FailingFindings:    result.FailingFindings,
+		KnownFindings:      result.KnownFindings,
+		SuppressedFindings: len(result.Suppressed),
+		ExcludedFiles:      result.ExcludedFiles,
+		Document:           result.Run,
+		Changes:            result.Changes,
+	}
+}
+
+// resolveRequestOrigin validates the origin of a request.
+//
+// The Origin field is the preferred one. The Worktree, Staged and Base
+// fields are the legacy shape of the first prototype and are accepted only
+// when Origin is empty, so a caller never selects two origins at once.
+func resolveRequestOrigin(request AuditRequest) (domain.ChangeOrigin, string, error) {
+	origin := strings.ToLower(strings.TrimSpace(request.Origin))
+	base := strings.TrimSpace(request.Base)
+
+	if origin != "" {
+		if request.Worktree || request.Staged {
+			return "", "", fmt.Errorf("the audit takes one origin: choose %q or the legacy worktree/staged flag, not both", origin)
+		}
+		switch origin {
+		case string(domain.OriginWorktree):
+			if base != "" {
+				return "", "", fmt.Errorf("the worktree origin does not take a base revision: remove %q", base)
+			}
+			return domain.OriginWorktree, "", nil
+		case string(domain.OriginStaged):
+			if base != "" {
+				return "", "", fmt.Errorf("the staged origin does not take a base revision: remove %q", base)
+			}
+			return domain.OriginStaged, "", nil
+		case string(domain.OriginBase):
+			if base == "" {
+				return "", "", fmt.Errorf("the base origin needs a revision: write one such as 'main'")
+			}
+			return domain.OriginBase, base, nil
+		default:
+			return "", "", fmt.Errorf("unknown origin %q: choose worktree, staged or base", origin)
+		}
+	}
+
+	selected := 0
+	if request.Worktree {
+		selected++
+	}
+	if request.Staged {
+		selected++
+	}
+	if base != "" {
+		selected++
+	}
+	switch {
+	case selected == 0:
+		return "", "", fmt.Errorf("the audit needs an origin: choose the worktree, the staging area or a base revision such as 'main'")
+	case selected > 1:
+		return "", "", fmt.Errorf("the audit takes one origin: choose the worktree, the staging area or the base revision %q, not several", base)
+	}
+	if request.Worktree {
+		return domain.OriginWorktree, "", nil
+	}
+	if request.Staged {
+		return domain.OriginStaged, "", nil
+	}
+	return domain.OriginBase, base, nil
+}
+
+// exportExtension returns the extension of a format.
+func exportExtension(format string) string {
+	if strings.EqualFold(strings.TrimSpace(format), "sarif") {
+		return ".sarif"
+	}
+	return ".json"
+}
+
+// ensureOutsideRoot rejects a report path inside the audited repository.
+func ensureOutsideRoot(path, root string) error {
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("cannot resolve the report path %q: %w", path, err)
+	}
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return fmt.Errorf("cannot resolve the audited repository %q: %w", root, err)
+	}
+	relative, err := filepath.Rel(absoluteRoot, absolutePath)
+	if err != nil {
+		return nil
+	}
+	if relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("the report cannot be written inside the audited repository %s: choose a path outside it", root)
+	}
+	return nil
+}
+
+// newRunID returns an identifier for a run.
+func newRunID() string {
+	buffer := make([]byte, 8)
+	if _, err := rand.Read(buffer); err != nil {
+		return fmt.Sprintf("run-%d", time.Now().UnixNano())
+	}
+	return "run-" + hex.EncodeToString(buffer)
 }
