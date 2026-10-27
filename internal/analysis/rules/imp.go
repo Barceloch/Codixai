@@ -70,19 +70,14 @@ func importSpecs(ctx *Context) []lexical.ImportSpec {
 	return nil
 }
 
-// goImportSpecs returns the imports of a Go file.
+// goImportSpecs returns the imports added by the change in a Go file.
 //
-// The extraction of go/parser is used when the content of the file is
-// available. Otherwise the textual extraction of the changed lines is used.
+// For diff analysis, we extract imports from the ADDED lines only,
+// not from the base file in the repository.
 func goImportSpecs(ctx *Context) []lexical.ImportSpec {
-	if file, ok := goSourceFile(ctx); ok {
-		specs := make([]lexical.ImportSpec, 0, len(file.Imports))
-		for _, spec := range file.Imports {
-			specs = append(specs, lexical.ImportSpec{Module: spec.Path, Line: spec.Line})
-		}
-		return specs
-	}
-	return golang.ExtractImports(ctx.View.NewLines)
+	specs := golang.ExtractImports(ctx.View.NewLines)
+	ctx.Diagnostic(fmt.Sprintf("DEBUG IMP ExtractImports: imports=%v", specs))
+	return specs
 }
 
 // goSourceFile reads and parses the changed Go file of the repository.
@@ -123,6 +118,7 @@ func classifyImport(ctx *Context, spec lexical.ImportSpec) importDecision {
 // classifyGoImport decides whether a Go import has to be reported.
 func classifyGoImport(ctx *Context, spec lexical.ImportSpec) importDecision {
 	manifest := golang.ReadManifest(ctx.Root)
+	ctx.Diagnostic(fmt.Sprintf("DEBUG IMP: root=%s, manifest.Found=%v, module=%s, requires=%v, spec=%s", ctx.Root, manifest.Found, manifest.Module, manifest.Requires, spec.Module))
 	decision := importDecision{ManifestFound: manifest.Found}
 	if golang.IsStdlib(spec.Module) {
 		decision.Skip = true

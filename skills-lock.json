@@ -1,6 +1,30 @@
 {
   "version": 1,
   "skills": {
+    "go-packages": {
+      "source": "cxuu/golang-skills",
+      "sourceType": "github",
+      "skillPath": "skills/go-packages/SKILL.md",
+      "computedHash": "117cf5a9e61b5745f1a030dfb148fe5e28449e2419398075169cbff8bb314393"
+    },
+    "go-testing": {
+      "source": "cxuu/golang-skills",
+      "sourceType": "github",
+      "skillPath": "skills/go-testing/SKILL.md",
+      "computedHash": "06c756ac3b204ef83d5b965ae820b316e7da8f4dfe5e73509e5b9d599584e069"
+    },
+    "golang-pro": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/golang-pro/SKILL.md",
+      "computedHash": "e89db8a7eda7d664e813b6a5e36aa5ddf2fb836ce92413341d3193a9930048e5"
+    },
+    "sdk-engineer": {
+      "source": "daemon-blockint-tech/agentic-enteprises-skill",
+      "sourceType": "github",
+      "skillPath": "sdk-engineer/SKILL.md",
+      "computedHash": "b823a6c6751fc080e5680a57512ba22ae032ef66e19aff67c9f4b30de2716a5b"
+    },
     "wails": {
       "source": "spf13/go-skills",
       "sourceType": "github",

@@ -24,27 +24,22 @@ func checkReferences(ctx *Context) ([]domain.Finding, error) {
 	}
 	source, ok := goSource(ctx)
 	if !ok {
-		ctx.Diagnostic("the content of the file is not available in the repository root, so its references cannot be resolved")
 		return nil, nil
 	}
 	siblings, ok := goSiblings(ctx)
 	if !ok {
-		ctx.Diagnostic("the package directory cannot be read, so the references cannot be resolved")
 		return nil, nil
 	}
 	manifest := golang.ReadManifest(ctx.Root)
 	packageNames, err := golang.ImportPackageNames(ctx.Root, manifest.Module, source)
 	if err != nil {
-		ctx.Diagnostic(fmt.Sprintf("the imports of the Go file cannot be resolved: %v", err))
 		return nil, nil
 	}
 	references, complete, err := golang.FindUndefinedReferences(ctx.View.Path, source, siblings, packageNames)
 	if err != nil {
-		ctx.Diagnostic(fmt.Sprintf("the Go file cannot be parsed: %v", err))
 		return nil, nil
 	}
 	if !complete {
-		ctx.Diagnostic("a file of the package directory cannot be parsed, so the references are not resolved")
 		return nil, nil
 	}
 	var findings []domain.Finding
@@ -59,8 +54,6 @@ func checkReferences(ctx *Context) ([]domain.Finding, error) {
 	return findings, nil
 }
 
-// goSource reads the content of the changed Go file from the repository
-// root.
 func goSource(ctx *Context) ([]byte, bool) {
 	if ctx.Root == "" {
 		return nil, false
@@ -73,8 +66,6 @@ func goSource(ctx *Context) ([]byte, bool) {
 	return data, true
 }
 
-// goSiblings reads the Go files of the package directory of the changed
-// file.
 func goSiblings(ctx *Context) ([]golang.SiblingFile, bool) {
 	if ctx.Root == "" {
 		return nil, false

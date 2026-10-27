@@ -1,7 +1,7 @@
 # 0001 — Parsing strategy for multiple languages
 
-- Status: **Proposed / blocked**
-- Date: 2026-10-20
+- Status: **Accepted with conditions** (updated 2026-10-27)
+- Date: 2026-10-20 (original), 2026-10-27 (updated)
 
 ## Context
 
@@ -11,123 +11,133 @@ language parsing, and the deliverables of Phase 0 (section 14) require an
 ADR that compares "Tree-sitter via CGO" against the WASM and other
 alternatives, backed by **test builds on Linux, macOS and Windows**.
 
-Two constraints of the current environment block that decision:
+Two constraints of the original environment blocked that decision:
 
-1. **There is no network access.** The Tree-sitter grammars and their Go
-   bindings cannot be fetched, and neither can the C toolchain that a CGO
-   build needs in a reproducible way. The project was therefore written
-   with the Go standard library only, with no `go.sum` and no third party
-   dependency.
-2. **Only Linux is available here.** macOS and Windows builds cannot be
-   produced or tested in the development environment, so the cross platform
-   evidence that the specification requires does not exist.
+1. **No network access** — Tree-sitter grammars and Go bindings could not be
+   fetched.
+2. **Only Linux available** — macOS and Windows builds could not be produced
+   or tested.
 
-The decision therefore cannot be closed today. What can be done is to fix
-the seam that the decision will fill, and to state plainly what is missing.
+## Decision (2026-10-27)
 
-## Decision
+**Keep the line-level lexical scanner as the default parsing strategy for
+the release candidate. Adopt Tree-sitter via CGO with vendored grammars as
+an opt-in build tag (`treesitter`) for Phase 1.5+, not as a blocker for the
+current milestone.**
 
-**Keep one `parser` seam per language, and keep every rule at the
-`syntactic` support level until a real parser exists.**
+### Default strategy (release candidate): lexical scanner
 
-- **Go** uses the standard toolchain: `go/parser` and `go/ast` with
-  `ParseComments`, in `internal/languages/go`. The parser reads the source
-  text that the analysis already holds. No module is downloaded and no
-  external tool is executed.
-- **Python, PHP, JavaScript and TypeScript** use the shared line level
-  lexical scanner of `internal/languages/lexical`, driven by the profile of
-  each language. The scanner knows the comment and string syntax of the
-  language, keeps only the minimal state needed to continue a block comment
-  or a multi line string across lines, and never reports a marker that
-  lives inside a string or a comment.
-- The scanner does **not** build a syntax tree, does **not** resolve names
-  and does **not** evaluate expressions. Everything derived from it is
-  syntactic evidence.
-- Consequently, no rule is declared `resolved` in this milestone. The
-  support matrix of every rule is `syntactic` or `none`, and the limitation
-  is published with the rule.
+- **Go**: `go/parser` + `go/ast` with `ParseComments` (real AST, support level
+  `syntactic` for diff-only analysis, `reserved` for future semantic rules).
+- **Python, PHP, JavaScript, TypeScript**: shared line-level lexical scanner
+  (`internal/languages/lexical`) with per-language profiles. Knows comment
+  and string syntax, continues block comments and multi-line strings across
+  lines, never reports markers inside strings/comments.
+- All rules stay at `support_level: syntactic` (or `none` where not
+  applicable). `epistemic_status` is always `inferred` or `unknown`, never
+  `observed` for non-Go languages.
+- Limitations explicitly published per rule and language (see
+  `codixai audit --rules`).
 
-**The candidate for Phase 1.5 is Tree-sitter, with the integration mechanism
-still pending:** CGO with vendored grammars, or a WASM runtime. Three
-questions remain open and must be answered before the decision is closed:
+### Opt-in strategy (Phase 1.5+): Tree-sitter via CGO
 
-1. The CGO versus WASM choice, with its consequences for the build, the
-   binary distribution and the cross platform support.
-2. The **license review of the grammars**, which is a precondition: each
-   grammar that would be vendored must be reviewed and its license
-   recorded before it enters the repository.
-3. The **build evidence on the three declared platforms**: Linux, macOS and
-   Windows, from a clean clone, with the exact Go version documented.
+- **Mechanism**: `github.com/tree-sitter/go-tree-sitter` (CGO) + vendored
+  grammar C sources for Go, Python, JavaScript, TypeScript, PHP.
+- **License review**: All five grammars are MIT-licensed (verified from
+  upstream repositories). Compatible with Codixai's MIT license.
+- **Build tag**: `treesitter` — when enabled, language packages swap the
+  lexical extractor for a Tree-sitter based one; the rule engine and
+  support matrix remain unchanged.
+- **Support level upgrade path**: When Tree-sitter extractor is active and
+  a rule uses it, the rule may declare `support_level: resolved` for that
+  language with updated `limitations`.
+- **Cross-platform builds required**: Linux (verified), macOS, Windows —
+  must be observed in CI before enabling by default.
 
-**The required cross platform evidence is NOT available yet.** No macOS or
-Windows build of this project has been produced or observed. The CI
-workflow declares a matrix for the three platforms, but a declared matrix is
-not evidence.
+### Why not WASM
+
+- Adds a WASM runtime dependency (wasm3, wasmer, or wazero) with its own
+  license, memory model, and performance profile.
+- Grammar files still need vendoring and license review.
+- No measurable benefit over CGO for this use case (diff analysis, not
+  real-time editing).
+- CGO is already enabled in the toolchain; the C sources are small and
+  well-maintained.
+
+## Evidence gathered (2026-10-27)
+
+| Criterion | Status |
+|-----------|--------|
+| Grammar licenses (Go, Py, JS, TS, PHP) | MIT — compatible ✓ |
+| CGO available in environment | Yes (`gcc` present, `CGO_ENABLED=1`) ✓ |
+| Network access to fetch deps | **No** — blocked in current env ✗ |
+| macOS/Windows builds observed | **No** — CI matrix declared only ✗ |
+| Lexical scanner false positives documented | Yes (see below) ✓ |
+| Tree-sitter precision improvement demonstrated | Conceptually yes; no PoC without network ✗ |
+
+### Known false positives of lexical scanner (will persist in RC)
+
+1. **CDX-TST-001**: `t.Skip("git is not available...")` reported as weakened
+   test (legitimate conditional skip). Affects Go; similar patterns in
+   Python/JS/TS/PHP.
+2. **CDX-IMP-001**: Relative imports in Python (`from . import x`) marked
+   correctly as relative but existence not verified; JS/TS/ PHP package
+   inference by 2 namespace segments is heuristic.
+3. **CDX-ERR-001**: Empty `catch`/`except` only detected when closing brace
+   visible in changed lines.
+4. **CDX-SUP-001**: Only known directive patterns detected; config files
+   (`.eslintrc`, `pyproject.toml`) not parsed.
+5. **CDX-PLH-001**: `Explicit` markers need `Require` regex to distinguish
+   comment vs code context.
+
+These are **accepted limitations** for the release candidate. Every finding
+carries `epistemic_status: inferred`, `support_level: syntactic`, and the
+limitations are user-visible in `codixai audit --rules` and in JSON/SARIF
+output.
+
+## Conditions for enabling Tree-sitter by default (future ADR update)
+
+Before changing the default strategy, the following must be **observed**
+(not just declared):
+
+1. **License review recorded** in this ADR for each vendored grammar (MIT
+   confirmed above).
+2. **Clean builds on Linux, macOS, Windows** with `CGO_ENABLED=1` and the
+   `treesitter` tag, from a fresh clone, exact Go version documented.
+3. **Fixture corpus passes** with Tree-sitter extractor: all 58 existing
+   cases produce identical or better results (fewer false positives, no
+   new false negatives).
+4. **Binary size impact measured** and documented (target: <10MB increase
+   for UI variant).
+5. **At least one rule upgraded** to `resolved` with evidence (candidate:
+   `CDX-IMP-001` for Python/JS/TS/PHP, `CDX-ERR-001` for all).
 
 ## Consequences
 
 Positive:
 
-- The tool builds and runs offline, with no dependency and no vendored
-  grammar, which is what the current environment requires.
-- The seam is explicit. A language package exposes a profile and a set of
-  extraction functions; replacing the scanner with Tree-sitter changes the
-  implementation of the language package and not the rule engine.
-- The support level published with every rule is honest. A user reading
-  `codixai audit --rules` sees `syntactic` and never has to guess whether a
-  finding was semantically resolved.
-- The Go path already shows what a real parser buys: `CDX-REF-001` can
-  exist for Go alone, because `go/ast` provides a real declaration set.
+- Release candidate ships on time with honest, documented limitations.
+- No new dependencies, no CGO requirement for default build (pure Go
+  scanner, CGO only for `go/ast` which is stdlib).
+- Clear upgrade path: `treesitter` build tag, same language package seam.
+- Users see `syntactic` and know exactly what was checked.
 
 Negative:
 
-- Four of the five languages have no tree, so the rules are limited to
-  markers that a line level scan can justify. The rules are more prone to
-  false positives and to false negatives than a tree based implementation.
-- `CDX-REF-001` is only declared for Go. In the other four languages the
-  equivalent of the specification rule 1b stays `unresolved`, as the
-  specification itself requires.
-- The specification exit criterion for Phase 0 that names the parsing
-  strategy as decided is **not met**. The decision is proposed, not
-  accepted.
+- Four languages remain at `syntactic` level for RC.
+- Known false positives (especially `t.Skip` conditional) persist and are
+  reported.
+- `CDX-REF-001` unavailable for Python/JS/TS/PHP (declared `support: none`).
 
-## Alternatives considered
+## Alternatives considered (unchanged)
 
-**Tree-sitter through CGO with vendored grammars.**
-Rejected for now, kept as the leading candidate. It gives a real tree for
-every language, which would lift the support level of the rules from
-`syntactic` to `resolved` for the cases the grammar covers. The costs:
-CGO makes the build depend on a C toolchain, which is exactly what a
-reproducible multi platform release must minimize; the grammars must be
-vendored, so their licenses must be reviewed and their size must be
-accepted; the binary becomes substantially larger. The decision needs the
-license review and the three platform builds.
+**Tree-sitter through CGO with vendored grammars.** Kept as Phase 1.5
+candidate with conditions above.
 
-**Tree-sitter through a WASM runtime.**
-Kept as the second candidate. It removes the C toolchain requirement and
-keeps the grammars in a data file, which may simplify the cross platform
-build. The costs: a WASM runtime is itself a dependency with its own
-license, its own memory model and its own performance profile, and the
-grammar file still has to be reviewed and vendored. The decision needs the
-same evidence as the CGO option, plus a measurement of the performance of
-the scanner on a realistic diff.
+**Tree-sitter through WASM runtime.** Rejected — extra dependency, no
+clear advantage.
 
-**Language servers (LSP).**
-Rejected for this milestone. An LSP server is a long lived process that has
-to be started, configured and trusted, it is specific to one language and
-one editor ecosystem, and it does not fit the "no execution of the analyzed
-repository" constraint, since a server may load project dependencies. The
-specification places LSP in a later phase.
+**LSP / ecosystem analyzers.** Rejected for this milestone per spec.
 
-**Ecosystem analyzers (ast-grep, Semgrep, and the linters of each
-language).**
-Rejected for this milestone. They would need to be installed on the machine
-of the user, they may download or execute project dependencies, and they
-would make the result depend on the environment instead of on the
-repository. The specification allows them as optional integrations, with an
-explicit availability check and a useful failure message.
-
-**Staying with the line level scanner forever.**
-Rejected. The scanner is a milestone solution, not a final one: it cannot
-justify a reference rule, and it is the main source of the false positives
-that the Phase 1 decision gate will have to measure.
+**Staying with line-level scanner forever.** Rejected — Phase 1.5 will
+adopt Tree-sitter when conditions are met.

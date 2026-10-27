@@ -21,6 +21,8 @@
 package ui
 
 import (
+	"github.com/barceloch/codixai/internal/index"
+	"github.com/barceloch/codixai/internal/visualization"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -603,6 +605,23 @@ func (a *App) Verify(request VerifyRequest) (*application.VerifyResult, error) {
 //
 // The title comes from the frontend so that the dialog speaks the language
 // of the interface.
+// Visualize performs a structural visualization of the repository.
+// It returns symbols and dependencies found in the index.
+func (a *App) Visualize(root string) (*visualization.VisualizationResult, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return nil, fmt.Errorf("the visualization needs the root of the repository: write it in the repository field")
+	}
+
+	idx := index.New()
+	if err := idx.Build(a.runtimeContext(), root); err != nil {
+		return nil, fmt.Errorf("failed to build index: %w", err)
+	}
+
+	return visualization.Visualize(idx), nil
+}
+
+
 func (a *App) ChooseRepository(title string) (string, error) {
 	ctx := a.ctx
 	if ctx == nil {

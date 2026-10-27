@@ -498,3 +498,162 @@ func TestEngineReportsADiagnosticWhenAFileCannotBeParsed(t *testing.T) {
 		t.Error("the analysis did not record a diagnostic for the file that cannot be parsed")
 	}
 }
+
+// TestAgentDiffsCorpus runs the engine over the agent diffs corpus
+// (testdata/agent-diffs/) and compares findings with expected results.
+// This corpus represents synthetic but representative diffs from AI agents.
+func TestAgentDiffsCorpus(t *testing.T) {
+	cases := collectAgentCases(t, agentDiffsRoot())
+	if len(cases) == 0 {
+		t.Fatal("the agent diffs corpus is empty")
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.Name(), func(t *testing.T) {
+			runAgentFixture(t, testCase)
+		})
+	}
+}
+
+const agentDiffsRootPath = ".." + string(filepath.Separator) + ".." + string(filepath.Separator) + "testdata" + string(filepath.Separator) + "agent-diffs"
+
+func agentDiffsRoot() string {
+	return agentDiffsRootPath
+}
+
+type agentFixtureCase struct {
+	Rule         string
+	Language     string
+	Kind         string
+	CaseName     string
+	Directory    string
+	DiffPath     string
+	ExpectedPath string
+}
+
+func (c agentFixtureCase) Name() string {
+	return c.Rule + "/" + c.Language + "/" + c.Kind + "/" + c.CaseName
+}
+
+func collectAgentCases(t *testing.T, root string) []agentFixtureCase {
+	t.Helper()
+	var cases []agentFixtureCase
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".diff") {
+			return nil
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		parts := strings.Split(filepath.ToSlash(relative), "/")
+		if len(parts) != 4 {
+			return nil // skip README.md etc
+		}
+		name := strings.TrimSuffix(entry.Name(), ".diff")
+		cases = append(cases, agentFixtureCase{
+			Rule:         parts[0],
+			Language:     parts[1],
+			Kind:         parts[2],
+			CaseName:     name,
+			Directory:    filepath.Dir(path),
+			DiffPath:     path,
+			ExpectedPath: filepath.Join(filepath.Dir(path), name+".expected.json"),
+		})
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("the agent diffs corpus cannot be walked: %v", err)
+	}
+	sort.Slice(cases, func(i, j int) bool { return cases[i].Name() < cases[j].Name() })
+	return cases
+}
+
+func runAgentFixture(t *testing.T, testCase agentFixtureCase) {
+	t.Helper()
+	expected := readExpected(t, testCase.ExpectedPath)
+	file, err := os.Open(testCase.DiffPath)
+	if err != nil {
+		t.Fatalf("the diff cannot be opened: %v", err)
+	}
+	defer file.Close()
+	changes, err := git.ParseUnifiedDiff(file)
+	if err != nil {
+		t.Fatalf("the diff cannot be parsed: %v", err)
+	}
+	root, err := filepath.Abs(testCase.Directory)
+	if err != nil {
+		t.Fatalf("the directory of the case cannot be resolved: %v", err)
+	}
+	// A case may bring its own repository, named after the case, or share
+	// the repository of the directory that holds it.
+	for _, candidate := range []string{testCase.CaseName + ".repo", "repo"} {
+		info, err := os.Stat(filepath.Join(root, candidate))
+		if err == nil && info.IsDir() {
+			root = filepath.Join(root, candidate)
+			break
+		}
+	}
+	t.Logf("DEBUG: root=%s, files=%d", root, len(changes.Files))
+	for _, f := range changes.Files {
+		t.Logf("DEBUG: file=%s, status=%s, lang=%s", f.Path, f.Status, f.Language)
+	}
+	changes.Root = root
+	changes.Origin = domain.OriginWorktree
+	changes.Base = "base"
+	changes.Head = "head"
+
+	engine := analysis.New(analysis.WithClock(fixedClock()))
+	run, err := engine.Analyze(context.Background(), changes)
+	if err != nil {
+		t.Fatalf("the analysis returned an error: %v", err)
+	}
+
+	t.Logf("DEBUG: findings=%d", len(run.Findings))
+	for _, finding := range run.Findings {
+		t.Logf("DEBUG: rule=%s, path=%s, line=%d, msg=%s", finding.RuleID, finding.Location.Path, finding.Location.StartLine, finding.Message)
+	}
+	t.Logf("DEBUG: diagnostics=%d", len(changes.Diagnostics))
+	for _, d := range changes.Diagnostics {
+		t.Logf("DIAG: %s", d.Message)
+	}
+	
+	produced := make([]string, 0, len(run.Findings))
+	for _, finding := range run.Findings {
+		produced = append(produced, finding.RuleID)
+	}
+	want := append([]string{}, expected.ExpectedRuleIDs...)
+	sort.Strings(produced)
+	sort.Strings(want)
+	if strings.Join(produced, ",") != strings.Join(want, ",") {
+		t.Errorf("the rules of the findings are %v, want %v", produced, want)
+	}
+	if len(run.Findings) != expected.ExpectedCount {
+		t.Errorf("the number of findings is %d, want %d: %v", len(run.Findings), expected.ExpectedCount, describe(run.Findings))
+	}
+	for _, finding := range run.Findings {
+		if finding.RuleVersion == "" {
+			t.Errorf("the finding %q has no rule version", finding.Message)
+		}
+		if finding.EpistemicStatus == "" {
+			t.Errorf("the finding %q has no epistemic status", finding.Message)
+		}
+		if finding.Support.Level == "" {
+			t.Errorf("the finding %q has no support level", finding.Message)
+		}
+		if finding.Support.Level == domain.SupportResolved {
+			t.Errorf("the finding %q claims a resolved support level", finding.Message)
+		}
+		if len(finding.Evidence) == 0 {
+			t.Errorf("the finding %q has no evidence", finding.Message)
+		}
+		if finding.Location.Path == "" {
+			t.Errorf("the finding %q has no path", finding.Message)
+		}
+		if finding.Recommendation == "" {
+			t.Errorf("the finding %q has no recommendation", finding.Message)
+		}
+	}
+}

@@ -76,7 +76,7 @@ func parseGoMod(data []byte) (string, []string) {
 				module = fields[1]
 			}
 		case "require":
-			if len(fields) == 1 {
+			if len(fields) == 1 || (len(fields) == 2 && fields[1] == "(") {
 				block = "require"
 				continue
 			}

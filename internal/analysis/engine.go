@@ -105,6 +105,11 @@ func (e *Engine) Analyze(ctx context.Context, changes *domain.ChangeSet) (*domai
 			if !definition.Supports(language) {
 				continue
 			}
+			diagnostics = append(diagnostics, domain.Diagnostic{
+				Path:     change.Path,
+				Message:  fmt.Sprintf("DEBUG ENGINE: applying rule %s for %s", definition.ID, language),
+				Severity: domain.SeverityWarning,
+			})
 			ruleContext := rules.NewContext(changes, profile, &change, view, definition, &diagnostics)
 			result, err := definition.Check(ruleContext)
 			if err != nil {
@@ -115,6 +120,11 @@ func (e *Engine) Analyze(ctx context.Context, changes *domain.ChangeSet) (*domai
 				})
 				continue
 			}
+			diagnostics = append(diagnostics, domain.Diagnostic{
+				Path:     change.Path,
+				Message:  fmt.Sprintf("DEBUG ENGINE: rule %s produced %d findings", definition.ID, len(result)),
+				Severity: domain.SeverityWarning,
+			})
 			findings = append(findings, result...)
 		}
 	}

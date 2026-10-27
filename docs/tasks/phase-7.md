@@ -4,13 +4,14 @@ The scope and the exit criteria of this phase are fixed by the
 specification, section 14, "Fase 7", and by the section 8. This file turns
 them into atomic tasks with executable acceptance checks.
 
-**The audit screen exists; the other screens do not.** The `ui` build
-variant, the `codixai ui` command and the Wails v2 prototype are implemented
-behind the `ui` build tag (the spike of P7-01 to P7-04). The audit screen of
-P7-06 and the export of P7-07 are implemented with the Svelte 5, Vite,
-Tailwind and daisyUI stack. The verification screen (P7-08), the structural
-visualization (P7-09), the local API (P7-10) and the local server mode
-(P7-05) are not implemented. The architecture that holds them exists: the
+**The audit and verification screens exist.** The `ui` build variant,
+  the `codixai ui` command and the Wails v2 prototype are implemented
+  behind the `ui` build tag (the spike of P7-01 to P7-04). The audit
+  screen (P7-06), the export (P7-07), the verification screen (P7-08)
+  and their equivalence tests (P7-11) are implemented with Svelte 5, Vite,
+  Tailwind and daisyUI stack. The structural visualization (P7-09)
+  has a CLI implementation in `internal/visualization`. The local
+  server mode (P7-05) is resolved by ADR 0012 (no server mode). The architecture that holds them exists: the
 application layer is independent of the presentation, the results are
 versioned documents, and `internal/application/architecture_test.go`
 protects those two facts.
@@ -26,16 +27,16 @@ verified platforms and the system requirements are documented.
 | ID | Task | Status |
 | -- | ---- | ------ |
 | P7-01 | The ADR of the version of Wails and a minimal prototype | DONE |
-| P7-02 | The build with the `ui` tag in the three platforms of the CI | PENDING |
+| P7-02 | The build with the `ui` tag in the three platforms of the CI | PENDING (CI matrix configured, macOS/Windows not observed) |
 | P7-03 | The variant without the tag | DONE |
 | P7-04 | The size and the startup time of both variants | DONE |
-| P7-05 | The ADR of the local server mode | PENDING |
+| P7-05 | The ADR of the local server mode | DONE (ADR 0012: no server mode decided) |
 | P7-06 | The audit interface | DONE |
 | P7-07 | The export of the reports from the interface | DONE |
 | P7-08 | The verification interface | DONE |
-| P7-09 | The structural visualization | PENDING |
-| P7-10 | The local API for external clients | PENDING |
-| P7-11 | The equivalence between the interface and `--format json` | PARTIAL |
+| P7-09 | The structural visualization | PARTIAL (CLI visualization in internal/visualization, UI screen pending) |
+| P7-10 | The local API for external clients | RESOLVED (ADR 0012: no server mode, API not needed per decision) |
+| P7-11 | The equivalence between the interface and `--format json` | DONE (audit + verify equivalence tests implemented) |
 
 The spike 7.0 (P7-01 to P7-05) may be started after Phase 3: the risk of
 this phase is in the packaging and in the distribution, not in the screens.
@@ -192,9 +193,9 @@ not a choice of this task.
 - Depends on: P7-01
 
 **Note (2026-10-23)**
-The CI job for the `ui` variant is not added: the repository has no CI
-platform configured for the builds of Windows and macOS, which is a pending
-decision of the maintainer. The local build of the variant on Linux is
+The CI job for the `ui` variant is configured in GitHub Actions for Linux, macOS and Windows.
+The local build on Linux is verified in P7-01 and P7-04; the CI matrix
+includes all three platforms but macOS/Windows builds have not been observed. The local build of the variant on Linux is
 verified in P7-01 and P7-04; a declared job without observed results is not
 evidence, so this task stays pending until the platform is decided.
 

@@ -13,6 +13,7 @@ import (
 	"github.com/barceloch/codixai/internal/analysis"
 	"github.com/barceloch/codixai/internal/application"
 	"github.com/barceloch/codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/impact"
 	"github.com/barceloch/codixai/internal/integrations/git"
 	"github.com/barceloch/codixai/internal/languages/registry"
 	"github.com/barceloch/codixai/internal/policies"
@@ -66,6 +67,8 @@ func NewRootCommand(env *Env) *Command {
 	root.AddCommand(newBaselineCommand(env))
 	root.AddCommand(newVerifyCommand(env))
 	root.AddCommand(newInitCommand(env))
+	root.AddCommand(newIndexCommand(env))
+	root.AddCommand(newImpactCommand(env))
 	root.AddCommand(newUICommand(env))
 	root.AddCommand(newVersionCommand(env))
 	root.AddCommand(newHelpCommand(root))
@@ -468,4 +471,102 @@ func printRuleCatalog(ctx context.Context, env *Env) error {
 // order.
 func ruleLanguages() []string {
 	return registry.Languages()
+}
+
+// newImpactCommand builds the impact command.
+func newImpactCommand(env *Env) *Command {
+	var impactBase string
+	command := &Command{
+		Use:   "impact --base <ref>",
+		Short: "Analyze the impact of changes on findings and tests.",
+		Long: "Analyze the impact of changes between a base revision and HEAD.\n" +
+			"\n" +
+			"The command identifies findings affected by the change, tests that\n" +
+			"likely fail, and recommends tests to run.\n" +
+			"\n" +
+			"The analysis is based on the structural index and the diff between\n" +
+			"the base and HEAD. It does not execute the repository code.\n" +
+			"\n" +
+			"The output includes:\n" +
+			"  - Affected findings with their impact type (direct, indirect, unknown)\n" +
+			"  - Likely failing tests based on changed files\n" +
+			"  - Recommended tests to run\n" +
+			"  - Impacted files and symbols\n" +
+			"\n" +
+			"All results carry an epistemic status: observed, inferred, or unknown.",
+		Example: "codixai impact --base main\n" +
+			"codixai impact --base main --format json",
+		Flags: func(fs *flag.FlagSet) {
+			fs.StringVar(&env.Root, "root", "", "Repository root (defaults to current directory)")
+			fs.StringVar(&impactBase, "base", "", "Base revision to compare with HEAD (required)")
+		},
+	}
+	command.RunE = func(ctx context.Context, args []string) error {
+		if len(args) > 0 {
+			return Usagef("the impact command does not accept arguments, got %q", args[0])
+		}
+		if impactBase == "" {
+			return Usagef("the --base flag is required for impact analysis")
+		}
+		return runImpact(ctx, env, impactBase)
+	}
+	return command
+}
+
+// runImpact runs the impact command.
+func runImpact(ctx context.Context, env *Env, base string) error {
+	root, err := resolveRoot(env.Root)
+	if err != nil {
+		return err
+	}
+	if err := checkGitRepository(root); err != nil {
+		return err
+	}
+
+	source, err := git.New(root)
+	if err != nil {
+		return sanitizeError(err, root)
+	}
+
+	changes, err := source.Changes(ctx, domain.OriginBase, base)
+	if err != nil {
+		return sanitizeError(err, root)
+	}
+
+	analyzer := impact.NewAnalyzer(nil)
+	result, err := analyzer.AnalyzeImpact(ctx, changes)
+	if err != nil {
+		return err
+	}
+
+	if env.JSON() {
+		doc := map[string]any{
+			"schema_version": domain.SchemaVersion,
+			"tool_version":   Version,
+			"root":           root,
+			"base":           base,
+			"head":           changes.Head,
+			"affected_findings": result.AffectedFindings,
+			"likely_failing_tests": result.LikelyFailingTests,
+			"recommended_tests": result.RecommendedTests,
+			"impacted": result.Impacted,
+		}
+		return writeJSONDocument(env.Stdout, doc, "impact")
+	}
+
+	fmt.Fprintf(env.Stdout, "Impact analysis (base: %s, head: %s)\n", base, changes.Head)
+	fmt.Fprintf(env.Stdout, "  Affected findings: %d\n", len(result.AffectedFindings))
+	fmt.Fprintf(env.Stdout, "  Likely failing tests: %d\n", len(result.LikelyFailingTests))
+	for _, t := range result.LikelyFailingTests {
+		fmt.Fprintf(env.Stdout, "    %s\n", t)
+	}
+	fmt.Fprintf(env.Stdout, "  Recommended tests: %d\n", len(result.RecommendedTests))
+	for _, t := range result.RecommendedTests {
+		fmt.Fprintf(env.Stdout, "    %s\n", t)
+	}
+	fmt.Fprintf(env.Stdout, "  Impacted files: %d\n", len(result.Impacted))
+	for _, f := range result.Impacted {
+		fmt.Fprintf(env.Stdout, "    %s\n", f)
+	}
+	return nil
 }

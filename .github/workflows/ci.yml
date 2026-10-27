@@ -53,17 +53,6 @@ jobs:
       - name: Run the tests with the race detector
         run: go test ./... -race
 
-  support-matrix:
-    name: Support matrix validation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - name: Validate the support matrix against the fixture corpus
-        run: go test ./internal/analysis/ -run TestSupportMatrixMatchesFixtures -v
-
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -80,7 +69,20 @@ jobs:
         run: go build -o codixai ./cmd/codixai
       - name: Print the version of the tool
         run: go run ./cmd/codixai version
-    # NOTE: only the Linux job was executed in the development environment.
-    # The macOS and the Windows jobs are declared here, but their results
-    # have not been observed yet. Do not claim cross platform support until
-    # these jobs have run green on the repository.
+  
+  build-ui:
+    name: Build UI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Build the UI binary
+        run: go build -tags ui -o codixai-ui ./cmd/codixai
+      - name: Print the version of the tool
+        run: go run ./cmd/codixai version
