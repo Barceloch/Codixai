@@ -52,102 +52,99 @@
   )
 </script>
 
-<section class="card border border-base-300 bg-base-100 shadow-sm" aria-labelledby="audit-title">
-  <div class="card-body gap-4">
-    <h2 id="audit-title" class="card-title text-lg">{i18n.t('audit.title')}</h2>
+<section class="section-glass glass-surface" aria-labelledby="audit-title">
+  <div class="card-glass card-glass-elevated">
+    <div class="card-body gap-4">
+      <h2 id="audit-title" class="card-title text-lg text-primary-color">{i18n.t('audit.title')}</h2>
 
-    <form class="grid gap-4 md:grid-cols-2" onsubmit={submit} autocomplete="off">
-      <div class="flex flex-col gap-1 md:col-span-2">
-        <label class="text-sm font-medium" for="repository">{i18n.t('audit.repository')}</label>
-        <div class="join w-full">
-          <input
-            id="repository"
-            class="input input-bordered join-item w-full"
-            type="text"
-            spellcheck="false"
-            placeholder={i18n.t('audit.repositoryPlaceholder')}
-            bind:value={root}
-            disabled={running}
-          />
-          <button
-            type="button"
-            class="btn join-item"
-            onclick={onchoose}
-            disabled={running || !bridgeAvailable}
-          >
-            {i18n.t('audit.chooseRepository')}
-          </button>
+      <form class="grid gap-4 md:grid-cols-2" onsubmit={submit} autocomplete="off">
+        <div class="grid gap-1 md:col-span-2">
+          <label class="label text-xs text-primary-color/60" for="repository">{i18n.t('audit.repository')}</label>
+          <div class="join w-full">
+            <input
+              id="repository"
+              class="input input-bordered join-item w-full"
+              type="text"
+              spellcheck="false"
+              placeholder={i18n.t('audit.repositoryPlaceholder')}
+              bind:value={root}
+              disabled={running}
+            />
+            <button
+              type="button"
+              class="btn-glass btn-sm"
+              onclick={onchoose}
+              disabled={running || !bridgeAvailable}
+            >
+              {i18n.t('audit.chooseRepository')}
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-medium" for="origin">{i18n.t('audit.origin')}</label>
-        <select
-          id="origin"
-          class="select select-bordered w-full"
-          bind:value={origin}
-          disabled={running}
-        >
-          {#each origins as value (value)}
-            <option value={value}>{i18n.t(`origin.${value}`)}</option>
-          {/each}
-        </select>
-      </div>
-
-      {#if origin === 'base'}
         <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium" for="base">{i18n.t('audit.base')}</label>
-          <input
-            id="base"
-            class="input input-bordered w-full"
-            type="text"
-            spellcheck="false"
-            placeholder={i18n.t('audit.basePlaceholder')}
-            bind:value={base}
+          <label class="label text-xs text-primary-color/60" for="origin">{i18n.t('audit.origin')}</label>
+          <select
+            id="origin"
+            class="select select-bordered w-full"
+            bind:value={origin}
             disabled={running}
-          />
+          >
+            {#each origins as value (value)}
+              <option value={value}>{i18n.t(`origin.${value}`)}</option>
+            {/each}
+          </select>
         </div>
-      {/if}
 
-      <div class="flex flex-wrap items-center gap-2 md:col-span-2">
-        <button type="submit" class="btn btn-primary" disabled={!canRun}>
-          {running ? i18n.t('audit.running') : i18n.t('audit.run')}
-        </button>
-        {#if running}
-          <button type="button" class="btn btn-ghost" onclick={oncancel}>
-            {i18n.t('audit.cancel')}
-          </button>
+        {#if origin === 'base'}
+          <div class="flex flex-col gap-1">
+            <label class="label text-xs text-primary-color/60" for="base">{i18n.t('audit.base')}</label>
+            <input
+              id="base"
+              class="input input-bordered w-full"
+              type="text"
+              spellcheck="false"
+              placeholder={i18n.t('audit.basePlaceholder')}
+              bind:value={base}
+              disabled={running}
+            />
+          </div>
         {/if}
-      </div>
-    </form>
 
-    {#if !bridgeAvailable}
-      <div class="alert alert-warning" role="status">
-        <span>{i18n.t('audit.error.bridge')}</span>
-      </div>
-    {/if}
-
-    {#if running}
-      <div class="alert" role="status" aria-live="polite">
-        <span class="loading loading-spinner loading-sm"></span>
-        <div>
-          <p class="font-medium">{progressText()}</p>
-          {#if progress && progress.changed_files}
-            <p class="text-xs text-base-content/70">
-              {i18n.t('summary.changedFiles')}: {progress.changed_files}
-            </p>
-          {/if}
+        <div class="flex flex-wrap items-center gap-2 md:col-span-2">
+          <button
+            type="submit"
+            class="btn btn-primary-glass w-full disabled={!canRun}"
+            >
+              {running ? i18n.t('audit.running') : i18n.t('audit.run')}
+            </button>
+            {#if running}
+              <button type="button" class="btn-glass btn-sm" onclick={oncancel}>
+                {i18n.t('audit.cancel')}
+              </button>
+            {/if}
+          </div>
         </div>
-      </div>
-    {/if}
-
-    {#if error}
-      <div class="alert alert-error" role="alert">
-        <div>
-          <p class="font-semibold">{i18n.t('audit.error.title')}</p>
-          <p class="break-anywhere text-sm">{error}</p>
-        </div>
-      </div>
-    {/if}
+      </form>
+    </div>
   </div>
 </section>
+
+{#if !bridgeAvailable}
+  <div class="alert alert-warning glass-surface" role="status">
+    <span>{i18n.t('audit.error.bridge')}</span>
+  </div>
+{/if}
+
+{#if running}
+  <div class="progress progress-glass aria-valuenow={progress?.total || 0} aria-valuemin="0" aria-valuemax="100" role="progressbar">
+    <div class="progress-glass-bar" style="width: {progress?.total ? Math.min(100, (progress.contradicted + progress.verified + progress.unresolved) / progress.total * 100) : 0}%"></div>
+    <p class="text-sm text-base-content/70 text-primary-color/60">{progress?.phase}</p>
+  </div>
+{/if}
+
+{#if error}
+  <div class="alert alert-error-glass" role="alert">
+    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m-2 2l-2 2m2 2l2 2m-2 2l-2 2m2 2l2 2" /></svg>
+    <span class="text-primary-color">{error}</span>
+  </div>
+{/if}

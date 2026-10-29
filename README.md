@@ -1,7 +1,5 @@
 # Codixai
 
-[![Built with Gentle-AI](https://raw.githubusercontent.com/Gentleman-Programming/gentle-ai/main/docs/assets/brand/built-with-gentle-ai.png)](https://github.com/Gentleman-Programming/gentle-ai)
-
 Codixai is a local-first command line tool that audits the changes of a Git
 repository against a deterministic catalog of rules. It is built for one
 audience in particular: developers who review work produced by AI coding

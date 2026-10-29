@@ -17,21 +17,19 @@
   }
 </script>
 
-<header class="border-b border-base-300 bg-base-100">
+<header class="glass-surface border-b border border-base-300 bg-base-100/80 backdrop-blur-lg">
   <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
     <div>
       <div class="flex items-center gap-2">
-        <h1 class="text-2xl font-bold tracking-tight">{i18n.t('app.title')}</h1>
-        <span class="badge badge-outline badge-sm">{i18n.t('app.localOnly')}</span>
+        <h1 class="text-2xl font-bold tracking-tight text-primary-color">{i18n.t('app.title')}</h1>
+        <span class="badge badge-glass badge-sm text-primary-color">{i18n.t('app.localOnly')}</span>
       </div>
-      <p class="text-sm text-base-content/70">{i18n.t('app.subtitle')}</p>
+      <p class="text-sm text-base-content/70 text-primary-color/60">{i18n.t('app.subtitle')}</p>
     </div>
 
     <div class="flex flex-wrap items-end gap-3">
       <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-          {i18n.t('header.language')}
-        </span>
+        <span class="text-xs font-medium uppercase text-base-content/60">Lenguaje</span>
         <select
           class="select select-bordered select-sm"
           value={i18n.locale}
@@ -44,9 +42,7 @@
       </label>
 
       <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-          {i18n.t('header.theme')}
-        </span>
+        <span class="text-xs font-medium uppercase text-base-content/60">Tema</span>
         <select
           class="select select-bordered select-sm"
           value={theme.preference}
