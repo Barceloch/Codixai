@@ -510,11 +510,13 @@ the roadmap:
   resolved semantically, so no rule is declared `resolved`.
 - **No index.** `audit --diff` compares Git blobs directly. There is no
   persistent index, no symbol graph and no cross-file resolution.
-- **`CDX-REF-001` produces false positives.** The Go reference rule works on
-  the package directory of the changed file, so an identifier declared in
-  another package of the module is reported as missing. The predeclared
-  identifiers of the language and the packages of the module are resolved.
-  The finding is a signal to review, not a confirmed defect.
+- **`CDX-REF-001` is implemented only for Go.** For JavaScript, TypeScript,
+  Python and PHP the rule declares `none` support and produces no findings.
+  The Go reference rule works on the package directory of the changed file,
+  so an identifier declared in another package of the module is reported as
+  missing. The predeclared identifiers of the language and the packages of
+  the module are resolved. The finding is a signal to review, not a
+  confirmed defect.
 - **`CDX-TST-001` reports conditional skips.** A test that is skipped when a
   tool is missing is a legitimate practice, and the rule cannot tell it
   apart from a test that is disabled on purpose.

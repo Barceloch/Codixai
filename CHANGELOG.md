@@ -12,9 +12,36 @@ branch.
 
 ## [Unreleased]
 
-### Added
+### Added — Reliability improvements (towards v0.1.0-rc.2)
 
-- **Module and CLI.** A Go module named `github.com/barceloch/codixai` that declares `go 1.27.0`
+- **CDX-IMP-001 false-positive fixes.** The import extraction for Go now uses
+  lexical segments to distinguish real import declarations from text that only
+  resembles imports (error messages, string literals, comments, variable names
+  containing "import"). The rule correctly identifies imports inside
+  `import (...)` blocks while avoiding false positives outside them.
+- **New regression tests for CDX-IMP-001.** Seven test cases cover the
+  original false positives from `ui/ui.go` (error messages with quoted paths),
+  imports inside multiline strings, comments with import examples, alias/dot/
+  blank imports, trailing comments, and variable names starting with "import".
+- **Corpus documentation updated.** The agent diffs corpus (`testdata/agent-diffs/`)
+  now explicitly states it is synthetic (55 cases), combined with the fixture
+  corpus (`testdata/rules/`, 60 cases) for a total of 115 evaluation cases.
+  The README clarifies that 1.00 metrics on this corpus do not generalize to
+  real projects.
+- **CDX-REF-001 scope documented.** The rule catalog and limitations now state
+  that this rule is implemented only for Go. The four remaining languages
+  (Python, PHP, JavaScript, TypeScript) have no implementation for this rule.
+
+### Changed
+
+- **CDX-IMP-001 extraction logic** (`internal/analysis/rules/imp.go`,
+  `internal/languages/go/golang.go`): switched from raw-text extraction to
+  segment-aware extraction. Inside `import (...)` blocks, string segments are
+  scanned (because import paths are string literals); outside blocks, only
+  code segments are scanned (to ignore strings and comments).
+
+### Module and CLI
+- A Go module named `github.com/barceloch/codixai` that declares `go 1.27.0`
   and uses only the Go standard library, with no third-party dependency. The
   binary is built with `go build ./cmd/codixai`.
 - **Command framework and command tree** in `internal/cli`: the commands
@@ -239,10 +266,13 @@ branch.
 
 - The analysis is syntactic and non-semantic. No rule is declared
   `resolved`, and no relation is resolved across packages or modules.
-- `CDX-REF-001` reports identifiers that are declared in another package of
-  the module as missing local symbols. It is a signal, not a confirmed
-  defect. The predeclared identifiers of the language and the packages of
-  the module are resolved since the version 2 of the rule.
+- `CDX-REF-001` is implemented only for Go. For JavaScript, TypeScript,
+  Python and PHP the rule declares `none` support and produces no findings.
+  The Go reference rule works on the package directory of the changed file,
+  so an identifier declared in another package of the module is reported as
+  missing. The predeclared identifiers of the language and the packages of
+  the module are resolved since version 2 of the rule. The finding is a
+  signal to review, not a confirmed defect.
 - `CDX-TST-001` reports a test that is skipped at run time, including the
   conditional skips that skip a test when a tool is missing. It is a signal,
   not a confirmed defect.

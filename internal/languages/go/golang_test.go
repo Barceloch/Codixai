@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/barceloch/codixai/internal/languages/lexical"
 	golang "github.com/barceloch/codixai/internal/languages/go"
 )
 
@@ -168,6 +169,127 @@ func main() {
 	}
 	if len(references) != 0 {
 		t.Errorf("the references are %+v, want none", references)
+	}
+}
+
+// TestExtractImportsIgnoresErrorMessages checks that error messages
+// containing quoted paths are not mistaken for import declarations.
+func TestExtractImportsIgnoresErrorMessages(t *testing.T) {
+	lines := []lexical.Line{
+		{Number: 1, Text: `return nil, fmt.Errorf("the visualization needs the root of the repository: write it in the repository field")`},
+		{Number: 2, Text: `return nil, fmt.Errorf("failed to build index: %w", err)`},
+	}
+	imports := golang.ExtractImportsRaw(lines)
+	if len(imports) > 0 {
+		t.Errorf("expected no imports from error messages, got: %v", imports)
+	}
+}
+
+// TestExtractImportsRawWithContext checks that the raw extraction correctly
+// identifies imports in multiline blocks when context lines are present.
+func TestExtractImportsRawWithContext(t *testing.T) {
+	// Test case 1: error message added (should produce no imports)
+	lines1 := []lexical.Line{
+		{Number: 1, Text: `return nil, fmt.Errorf("the visualization needs the root of the repository: write it in the repository field")`},
+	}
+	imports1 := golang.ExtractImportsRaw(lines1)
+	if len(imports1) > 0 {
+		t.Errorf("expected no imports from error message, got: %v", imports1)
+	}
+
+	// Test case 2: multiline import block with added line
+	lines2 := []lexical.Line{
+		{Number: 8, Text: `import (`},
+		{Number: 9, Text: `	"fmt"`},
+		{Number: 10, Text: `	"github.com/new/pkg"`},
+		{Number: 11, Text: `)`},
+	}
+	imports2 := golang.ExtractImportsRaw(lines2)
+	if len(imports2) != 2 {
+		t.Errorf("expected two imports from multiline block, got: %v", imports2)
+	}
+	// The first import should be on line 9, second on line 10
+	found := map[string]bool{}
+	for _, imp := range imports2 {
+		found[imp.Module] = true
+	}
+	if !found["fmt"] || !found["github.com/new/pkg"] {
+		t.Errorf("expected imports fmt and github.com/new/pkg, got: %v", imports2)
+	}
+}
+
+// TestExtractImportsRawFalsePositives checks that various false positive
+// scenarios are handled correctly.
+func TestExtractImportsRawFalsePositives(t *testing.T) {
+	// Test case 1: Comment with import-like text
+	lines1 := []lexical.Line{
+		{Number: 1, Text: `// import "github.com/fake/pkg"`},
+	}
+	imports1 := golang.ExtractImportsRaw(lines1)
+	if len(imports1) > 0 {
+		t.Errorf("expected no imports from comment, got: %v", imports1)
+	}
+
+	// Test case 2: String with import-like text (not in import block)
+	lines2 := []lexical.Line{
+		{Number: 1, Text: `fmt.Println("import \"github.com/fake/pkg\"")`},
+	}
+	imports2 := golang.ExtractImportsRaw(lines2)
+	if len(imports2) > 0 {
+		t.Errorf("expected no imports from string, got: %v", imports2)
+	}
+
+	// Test case 3: Multiline string with import-like text
+	lines3 := []lexical.Line{
+		{Number: 1, Text: `const msg = ` + "`" + `import "github.com/fake/pkg"` + "`"},
+	}
+	imports3 := golang.ExtractImportsRaw(lines3)
+	if len(imports3) > 0 {
+		t.Errorf("expected no imports from multiline string, got: %v", imports3)
+	}
+
+	// Test case 4: Single-line import (not in block)
+	lines4 := []lexical.Line{
+		{Number: 1, Text: `import "fmt"`},
+	}
+	imports4 := golang.ExtractImportsRaw(lines4)
+	if len(imports4) != 1 || imports4[0].Module != "fmt" {
+		t.Errorf("expected import fmt, got: %v", imports4)
+	}
+
+	// Test case 5: Import with alias
+	lines5 := []lexical.Line{
+		{Number: 1, Text: `import myfmt "fmt"`},
+	}
+	imports5 := golang.ExtractImportsRaw(lines5)
+	if len(imports5) != 1 || imports5[0].Module != "fmt" {
+		t.Errorf("expected import fmt with alias, got: %v", imports5)
+	}
+
+	// Test case 6: Import block with only context (no added lines)
+	lines6 := []lexical.Line{
+		{Number: 1, Text: `import (`},
+		{Number: 2, Text: `	"fmt"`},
+		{Number: 3, Text: `)`},
+	}
+	imports6 := golang.ExtractImportsRaw(lines6)
+	if len(imports6) != 1 {
+		t.Errorf("expected one import from context block, got: %v", imports6)
+	}
+}
+
+// TestExtractImportsRawUIErrorMessages tests the original false positive
+// from ui/ui.go where error messages containing quoted paths were
+// incorrectly flagged as imports.
+func TestExtractImportsRawUIErrorMessages(t *testing.T) {
+	// These are the exact error messages from ui/ui.go that were causing false positives
+	lines := []lexical.Line{
+		{Number: 612, Text: `return nil, fmt.Errorf("the visualization needs the root of the repository: write it in the repository field")`},
+		{Number: 613, Text: `return nil, fmt.Errorf("failed to build index: %w", err)`},
+	}
+	imports := golang.ExtractImportsRaw(lines)
+	if len(imports) > 0 {
+		t.Errorf("expected no imports from ui.go error messages, got: %v", imports)
 	}
 }
 

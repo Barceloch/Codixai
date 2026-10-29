@@ -166,17 +166,77 @@ func IsThirdPartyShape(path string) bool {
 	return strings.Contains(first, ".")
 }
 
-// ExtractImports returns the import paths declared by the given source
-// lines.
-//
-// It is the textual fallback used when the whole file is not available. The
-// Go specific extraction based on go/parser is preferred when it can be
-// applied.
-func ExtractImports(lines []lexical.Line) []lexical.ImportSpec {
+// ExtractImportsRaw returns the import paths from the given source lines
+// using raw text. This is used as a fallback when the full file is not
+// available. It operates on the raw line text without segment filtering,
+// which is appropriate for diff analysis where only added lines are provided.
+func ExtractImportsRaw(lines []lexical.Line) []lexical.ImportSpec {
 	var imports []lexical.ImportSpec
 	inBlock := false
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line.Text)
+		if inBlock {
+			if trimmed == ")" {
+				inBlock = false
+				continue
+			}
+			if path, ok := importPathOf(trimmed); ok {
+				imports = append(imports, lexical.ImportSpec{Module: path, Line: line.Number})
+			}
+			continue
+		}
+		if !strings.HasPrefix(trimmed, "import") {
+			continue
+		}
+		rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "import"))
+		if rest == "(" {
+			inBlock = true
+			continue
+		}
+		if rest == "" {
+			continue
+		}
+		if path, ok := importPathOf(rest); ok {
+			imports = append(imports, lexical.ImportSpec{Module: path, Line: line.Number})
+		}
+	}
+	return imports
+}
+
+// ExtractImports returns the import paths declared by the given source
+// lines using the Go AST parser when available, with a textual fallback
+// that uses code segments to avoid false positives from strings and comments.
+//
+// When inside an import block, import paths are string literals, so they
+// appear as KindString segments. The function handles this by also
+// scanning string segments within import blocks.
+func ExtractImports(lines []lexical.Line, segments map[int][]lexical.Segment) []lexical.ImportSpec {
+	var imports []lexical.ImportSpec
+	inBlock := false
+	for _, line := range lines {
+		// When inside an import block, we need to look at string segments
+		// too, because import paths are string literals.
+		var text string
+		if inBlock {
+			// Inside import block: use all segments (code + string)
+			// but skip comment segments.
+			if segs, ok := segments[line.Number]; ok {
+				var parts []string
+				for _, seg := range segs {
+					if seg.Kind != lexical.KindComment {
+						parts = append(parts, seg.Text)
+					}
+				}
+				text = strings.Join(parts, "")
+			} else {
+				text = line.Text
+			}
+		} else {
+			// Outside import block: use only code segments to avoid
+			// false positives from strings and comments.
+			text = lexical.CodeOrText(line, segments)
+		}
+		trimmed := strings.TrimSpace(text)
 		if inBlock {
 			if trimmed == ")" {
 				inBlock = false

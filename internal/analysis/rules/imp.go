@@ -72,15 +72,37 @@ func importSpecs(ctx *Context) []lexical.ImportSpec {
 
 // goImportSpecs returns the imports added by the change in a Go file.
 //
-// For diff analysis, we extract imports from the ADDED lines only,
-// not from the base file in the repository.
+// For diff analysis, we extract imports from the NEW side lines (context + added)
+// using textual extraction with code segments (and string segments inside
+// import blocks), then filter to only report findings on ADDED lines.
+// This correctly identifies imports in the import block while avoiding
+// false positives from strings and comments outside import blocks.
 func goImportSpecs(ctx *Context) []lexical.ImportSpec {
-	specs := golang.ExtractImports(ctx.View.NewLines)
-	ctx.Diagnostic(fmt.Sprintf("DEBUG IMP ExtractImports: imports=%v", specs))
-	return specs
+	// Use textual extraction on all new side lines (context + added) with
+	// code segments to filter out strings and comments. Inside import
+	// blocks, string segments are also scanned because import paths
+	// are string literals.
+	specs := golang.ExtractImports(ctx.View.NewLines, ctx.View.NewSegments)
+
+	// Filter to only report imports on ADDED lines
+	var addedSpecs []lexical.ImportSpec
+	for _, spec := range specs {
+		if ctx.View.IsAdded(spec.Line) {
+			addedSpecs = append(addedSpecs, spec)
+		}
+	}
+	ctx.Diagnostic(fmt.Sprintf("DEBUG IMP ExtractImports (code segments, added only): imports=%v", addedSpecs))
+	return addedSpecs
 }
 
 // goSourceFile reads and parses the changed Go file of the repository.
+//
+// It is used by CDX-SUP-001 (checkSuppressions / goSuppressionFindings) to
+// detect Go-specific suppression directives in comments (e.g., //nolint)
+// when the full file content is available. The function is not used by
+// CDX-IMP-001 because the file on disk does not contain the diff changes,
+// and applying the diff in memory would add complexity without clear benefit
+// over the segment-based textual extraction.
 func goSourceFile(ctx *Context) (*golang.File, bool) {
 	if ctx.Root == "" {
 		return nil, false
