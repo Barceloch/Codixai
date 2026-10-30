@@ -59,7 +59,7 @@ func TestIndexFiveLanguages(t *testing.T) {
 		// Create a temp file with that extension
 		tmpFile := filepath.Join(t.TempDir(), "test."+getExtension(lang))
 		os.WriteFile(tmpFile, []byte(""), 0o644)
-		
+
 		detected, ok := registry.Detect(tmpFile)
 		if !ok {
 			t.Errorf("registry.Detect failed for %q", lang)

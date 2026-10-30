@@ -129,8 +129,8 @@ func TestUIExportSARIFMatchesTheCLIReport(t *testing.T) {
 	}
 }
 
-// TestUIVerifyDocumentMatchesTheCLIJSON checks that the verification document 
-// that the window renders is the same document that "verify --format json" 
+// TestUIVerifyDocumentMatchesTheCLIJSON checks that the verification document
+// that the window renders is the same document that "verify --format json"
 // writes for the same changes.
 func TestUIVerifyDocumentMatchesTheCLIJSON(t *testing.T) {
 	root := newRepository(t)
@@ -192,7 +192,7 @@ func TestUIVerifyDocumentMatchesTheCLIJSON(t *testing.T) {
 			ToolVersion: "test",
 		})
 	}, root)
-	
+
 	view, err := srv.Verify(ui.VerifyRequest{
 		Root:       root,
 		Base:       base,

@@ -50,9 +50,9 @@ func Visualize(idx *index.Index) *VisualizationResult {
 	symbolInfo := make([]SymbolInfo, len(symbols))
 	for i, sym := range symbols {
 		symbolInfo[i] = SymbolInfo{
-			Name:    sym.Name,
-			Kind:    sym.Kind,
-			File:    sym.File,
+			Name:     sym.Name,
+			Kind:     sym.Kind,
+			File:     sym.File,
 			Language: sym.Language,
 		}
 		result.Summary["total_symbols"] = len(symbols)
@@ -69,8 +69,8 @@ func Visualize(idx *index.Index) *VisualizationResult {
 	depInfo := make([]DependencyInfo, len(deps))
 	for i, dep := range deps {
 		depInfo[i] = DependencyInfo{
-			Path:    dep.Path,
-			File:    dep.File,
+			Path:     dep.Path,
+			File:     dep.File,
 			Language: dep.Language,
 		}
 	}

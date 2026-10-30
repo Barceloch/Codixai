@@ -22,18 +22,18 @@ const (
 
 // SimilarityMatch represents a pair of similar code fragments.
 type SimilarityMatch struct {
-	Type            SimilarityType   `json:"type"`
-	Language        string           `json:"language"`
-	FileA           string           `json:"file_a"`
-	SymbolA         string           `json:"symbol_a"`
-	FileB           string           `json:"file_b"`
-	SymbolB         string           `json:"symbol_b"`
-	Similarity      float64          `json:"similarity"`
-	LinesMatched    int              `json:"lines_matched"`
-	TotalLines      int              `json:"total_lines"`
-	Severity        domain.Severity  `json:"severity"`
+	Type            SimilarityType         `json:"type"`
+	Language        string                 `json:"language"`
+	FileA           string                 `json:"file_a"`
+	SymbolA         string                 `json:"symbol_a"`
+	FileB           string                 `json:"file_b"`
+	SymbolB         string                 `json:"symbol_b"`
+	Similarity      float64                `json:"similarity"`
+	LinesMatched    int                    `json:"lines_matched"`
+	TotalLines      int                    `json:"total_lines"`
+	Severity        domain.Severity        `json:"severity"`
 	EpistemicStatus domain.EpistemicStatus `json:"epistemic_status"`
-	Evidence        []domain.Evidence `json:"evidence,omitempty"`
+	Evidence        []domain.Evidence      `json:"evidence,omitempty"`
 }
 
 // SimilarityResult holds the results of similarity analysis.

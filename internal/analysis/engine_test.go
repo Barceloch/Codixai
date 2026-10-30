@@ -619,7 +619,7 @@ func runAgentFixture(t *testing.T, testCase agentFixtureCase) {
 	for _, d := range changes.Diagnostics {
 		t.Logf("DIAG: %s", d.Message)
 	}
-	
+
 	produced := make([]string, 0, len(run.Findings))
 	for _, finding := range run.Findings {
 		produced = append(produced, finding.RuleID)

@@ -400,9 +400,9 @@ func (a *Analyzer) calculateCoupling(deps []index.Dependency) *CouplingMetrics {
 	}
 
 	return &CouplingMetrics{
-		AfferentCoupling:  afferent,
-		EfferentCoupling:  efferent,
-		Instability:       instability,
+		AfferentCoupling: afferent,
+		EfferentCoupling: efferent,
+		Instability:      instability,
 	}
 }
 

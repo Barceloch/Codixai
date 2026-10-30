@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/barceloch/codixai/internal/languages/lexical"
 	golang "github.com/barceloch/codixai/internal/languages/go"
+	"github.com/barceloch/codixai/internal/languages/lexical"
 )
 
 // TestParseGoMod checks the reader of the go.mod file.

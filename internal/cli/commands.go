@@ -541,15 +541,15 @@ func runImpact(ctx context.Context, env *Env, base string) error {
 
 	if env.JSON() {
 		doc := map[string]any{
-			"schema_version": domain.SchemaVersion,
-			"tool_version":   Version,
-			"root":           root,
-			"base":           base,
-			"head":           changes.Head,
-			"affected_findings": result.AffectedFindings,
+			"schema_version":       domain.SchemaVersion,
+			"tool_version":         Version,
+			"root":                 root,
+			"base":                 base,
+			"head":                 changes.Head,
+			"affected_findings":    result.AffectedFindings,
 			"likely_failing_tests": result.LikelyFailingTests,
-			"recommended_tests": result.RecommendedTests,
-			"impacted": result.Impacted,
+			"recommended_tests":    result.RecommendedTests,
+			"impacted":             result.Impacted,
 		}
 		return writeJSONDocument(env.Stdout, doc, "impact")
 	}

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/branding/logo01.png" alt="Codixai" width="256" />
+</p>
+
 # Codixai
 
 Codixai is a local-first command line tool that audits the changes of a Git

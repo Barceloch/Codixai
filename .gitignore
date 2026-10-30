@@ -19,3 +19,4 @@
 # Tooling del entorno de desarrollo (registro de skills)
 .atl/
 .agents/
+testdata/agent-diffs/**/.git/

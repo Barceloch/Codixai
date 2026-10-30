@@ -55,6 +55,9 @@ const en: Record<string, string> = {
   'origin.worktree': 'Worktree (uncommitted changes)',
   'origin.staged': 'Staging area',
   'origin.base': 'Base revision',
+  'origin.worktreeDesc': 'All uncommitted changes in the working tree',
+  'origin.stagedDesc': 'Only changes added to the staging area',
+  'origin.baseDesc': 'Compare against a specific base revision',
 
   'summary.title': 'Summary',
   'summary.root': 'Repository',
@@ -242,6 +245,9 @@ const es: Record<string, string> = {
   'origin.worktree': 'Árbol de trabajo (cambios sin confirmar)',
   'origin.staged': 'Área de preparación',
   'origin.base': 'Revisión base',
+  'origin.worktreeDesc': 'Todos los cambios sin confirmar en el árbol de trabajo',
+  'origin.stagedDesc': 'Solo los cambios añadidos al área de preparación',
+  'origin.baseDesc': 'Comparar contra una revisión base específica',
 
   'summary.title': 'Resumen',
   'summary.root': 'Repositorio',
