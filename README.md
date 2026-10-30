@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/logo01.png" alt="Codixai" width="256" />
+  <img src="assets/branding/logo01.png" alt="Codixai" width="512" />
 </p>
 
 # Codixai
@@ -21,6 +21,8 @@ package manager and never accesses the network.**
 **Experimental. This repository is at the Phase 0 / Phase 1 milestone, plus
 the verification of claims of Phase 2 and the CI adoption of Phase 3. It is
 not a finished product.**
+
+> 📚 **Guía en español:** [docs/guides/codixai-usage.es.md](docs/guides/codixai-usage.es.md)
 
 What exists today:
 
