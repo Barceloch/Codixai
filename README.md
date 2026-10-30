@@ -656,3 +656,6 @@ contact address is **PENDING maintainer confirmation**.
 
 See [CHANGELOG.md](CHANGELOG.md). The project has not published a release
 yet: the `0.1.0` entry is still unreleased.
+
+
+[![Built with Gentle-AI](https://raw.githubusercontent.com/Gentleman-Programming/gentle-ai/main/docs/assets/brand/built-with-gentle-ai.png)](https://github.com/Gentleman-Programming/gentle-ai)
