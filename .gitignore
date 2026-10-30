@@ -20,3 +20,12 @@
 .atl/
 .agents/
 testdata/agent-diffs/**/.git/
+
+# Local task tracking
+odd/task
+
+# GitHub workflows and config
+.github
+
+# Opencode config
+.opencode
