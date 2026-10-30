@@ -29,3 +29,11 @@ odd/task
 
 # Opencode config
 .opencode
+
+# Build artifacts and local packages
+SHA256SUMS*
+*.tar.gz
+*.zip
+frontend/public/
+logo*.png
+dist/local-test/
