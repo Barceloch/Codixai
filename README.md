@@ -135,6 +135,105 @@ go run -tags "ui bindings" ./cmd/codixai ui --root .
 The default build (`go build ./cmd/codixai`) neither needs Node.js nor
 compiles Wails, and it does not include the window.
 
+## Download and Installation
+
+Precompiled binaries are published for every release at
+<https://github.com/Barceloch/Codixai/releases>. No Go toolchain is needed to
+run them.
+
+| Package | Platform | Contents |
+| ------- | -------- | -------- |
+| `codixai_<version>_linux_amd64_cli.tar.gz` | Linux x86_64 | Static CLI. No graphical libraries. |
+| `codixai_<version>_linux_amd64_ui.tar.gz` | Linux x86_64 | CLI and desktop window. Needs GTK 3, WebKitGTK 4.1 and glibc 2.39+. |
+| `codixai_<version>_windows_amd64_cli.zip` | Windows x86_64 | CLI. |
+| `codixai_<version>_windows_amd64_ui.zip` | Windows x86_64 | CLI and desktop window. Needs the WebView2 runtime. |
+
+Every package holds the binary, a `README.md`, a `README.es.md`, a `VERSION`
+file and the licence. `SHA256SUMS` covers all four archives.
+
+### Requirements
+
+- **CLI on Linux**: nothing beyond the operating system. The binary is static
+  (`CGO_ENABLED=0`), so it does not depend on the version of the C library of
+  the distribution.
+- **CLI on Windows**: Windows 10 or later. No Go, no WebView2.
+- **UI on Linux**: GTK 3 and WebKitGTK 4.1 at run time:
+
+  ```bash
+  # Ubuntu 24.04, Debian 13 and derivatives
+  sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0
+  # Fedora
+  sudo dnf install gtk3 webkit2gtk4.1
+  # Arch and Manjaro
+  sudo pacman -S gtk3 webkit2gtk-4.1
+  ```
+
+  Plus glibc 2.39 or later. The window links against the system libraries, so
+  the binary is built in Ubuntu 24.04: a binary built on a rolling release
+  such as Arch does not start on Debian or Ubuntu.
+- **UI on Windows**: the Microsoft Edge WebView2 runtime. Windows 11 ships it;
+  on Windows 10 it may be installed by the Edge updater or from
+  <https://developer.microsoft.com/microsoft-edge/webview2/>.
+
+### Install on Linux
+
+```bash
+tar -xzf codixai_<version>_linux_amd64_cli.tar.gz
+cd codixai_<version>_linux_amd64_cli
+chmod +x codixai
+./codixai --help
+./codixai version
+```
+
+To put it on the `PATH`:
+
+```bash
+mkdir -p ~/.local/bin
+install -m 0755 codixai ~/.local/bin/codixai
+codixai version
+```
+
+### Install on Windows
+
+Unzip the package and run from PowerShell:
+
+```powershell
+.\codixai.exe --help
+.\codixai.exe version
+```
+
+Windows SmartScreen may warn on the first run: the binary is not signed.
+
+### Verify the download
+
+```bash
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
+On Windows PowerShell:
+
+```powershell
+$expected = (Select-String -Path SHA256SUMS -Pattern 'windows_amd64_cli').Line.Split()[0]
+(Get-FileHash .\codixai_<version>_windows_amd64_cli.zip -Algorithm SHA256).Hash.ToLower() -eq $expected
+```
+
+A checksum that does not match means the file is not the published one: do not
+run it.
+
+### Known limitations
+
+- Only Linux and Windows on x86_64 in this delivery. No ARM and no macOS.
+- The Linux UI depends on the system libraries and is built in Ubuntu 24.04.
+- The Windows UI is compiled by the release workflow but the graphical window
+  is not executed there: the runner has no interactive desktop.
+- The verification screen exports JSON only; the SARIF export of a
+  verification is not implemented in this version.
+- The binary is not signed.
+- The MCP server (`codixai-mcp-srv`) is not part of this delivery.
+
+A Spanish guide is published alongside the English one at
+[`docs/guides/codixai-usage.es.md`](docs/guides/codixai-usage.es.md).
+
 ## Quick start
 
 Audit the uncommitted changes of the repository in the current directory:

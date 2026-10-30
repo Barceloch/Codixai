@@ -8,35 +8,38 @@
 }
 
 @theme {
-  /* Aegis Relay — Orbital Defense Network Color Palette */
+  /* Codixai — readable dark theme. The palette keeps the lime accent but
+     puts every text on a light value: a dark purple on a black background
+     was invisible, and the uppercase monospace body made the interface
+     unreadable at any size. */
   --color-primary: #D3E488;
   --color-primary-hover: #b8c970;
   --color-secondary: #CDD6F0;
   --color-tertiary: #8FB8F0;
   --color-neutral: #EEF2FF;
-  --color-background: #000000;
-  --color-surface: #D3E488;
-  --color-text-primary: #6A6288;
-  --color-text-secondary: #D3E488;
-  --color-border: #CDD6F0;
-  --color-border-dark: #2A2440;
+  --color-background: #0a0a0f;
+  --color-surface: #14121c;
+  --color-text-primary: #e8e4f0;
+  --color-text-secondary: #a098b8;
+  --color-border: #2a2840;
+  --color-border-dark: #1a1826;
   --color-accent: #D3E488;
 
   /* Glass surface shadows */
-  --shadow-glass-1: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 1px 1px 0 rgba(205, 214, 240, 0.05);
-  --shadow-glass-2: inset 0 0 0 2px rgba(0, 0, 0, 0.6), 0 1px 0 0 rgba(205, 214, 240, 0.06);
-  --shadow-glass-glow: 0 0 10px 0 rgba(211, 228, 136, 0.75), inset 0 0 0 2px rgba(0, 0, 0, 0.6);
+  --shadow-glass-1: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 2px 8px 0 rgba(0, 0, 0, 0.5);
+  --shadow-glass-2: inset 0 0 0 2px rgba(255, 255, 255, 0.04), 0 2px 12px 0 rgba(0, 0, 0, 0.6);
+  --shadow-glass-glow: 0 0 12px 0 rgba(211, 228, 136, 0.5), inset 0 0 0 2px rgba(0, 0, 0, 0.6);
 
   /* Blur */
-  --blur-glass: 4px;
+  --blur-glass: 8px;
 
   /* Typography */
   --font-family-headline: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-family-body: 'Azeret Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-size-body: 10px;
-  --font-weight-body: 300;
-  --line-height-body: 16.25px;
-  --letter-spacing-body: 0.14em;
+  --font-size-body: 13px;
+  --font-weight-body: 400;
+  --line-height-body: 20px;
+  --letter-spacing-body: 0.01em;
 
   /* Spacing */
   --spacing-base: 4px;
@@ -108,7 +111,6 @@ body {
   font-weight: var(--font-weight-body);
   line-height: var(--line-height-body);
   letter-spacing: var(--letter-spacing-body);
-  text-transform: uppercase;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -116,14 +118,12 @@ body {
 /* Headlines use system font */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-family-headline);
-  text-transform: none;
-  letter-spacing: normal;
   font-weight: 600;
 }
 
 /* Glass cards */
 .card-glass {
-  background: rgba(211, 228, 136, 0.1);
+  background: rgba(20, 18, 28, 0.85);
   backdrop-filter: blur(var(--blur-glass));
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-glass-1);
@@ -131,7 +131,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .card-glass-elevated {
-  background: rgba(211, 228, 136, 0.15);
+  background: rgba(28, 24, 40, 0.9);
   backdrop-filter: blur(var(--blur-glass));
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-glass-2);
@@ -139,7 +139,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .card-glass-glow {
-  background: rgba(211, 228, 136, 0.2);
+  background: rgba(28, 24, 40, 0.92);
   backdrop-filter: blur(var(--blur-glass));
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-glass-glow);
@@ -210,12 +210,10 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: var(--font-weight-body);
   line-height: var(--line-height-body);
   letter-spacing: var(--letter-spacing-body);
-  text-transform: uppercase;
 }
 
 .text-headline {
   font-family: var(--font-family-headline);
-  text-transform: none;
   letter-spacing: normal;
 }
 
@@ -238,8 +236,7 @@ input, select, textarea {
   font-weight: var(--font-weight-body);
   line-height: var(--line-height-body);
   letter-spacing: var(--letter-spacing-body);
-  text-transform: uppercase;
-  background: rgba(211, 228, 136, 0.1);
+  background: rgba(20, 18, 28, 0.8);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
@@ -254,29 +251,28 @@ input:focus, select:focus, textarea:focus {
 }
 
 input::placeholder, textarea::placeholder {
-  color: var(--color-text-primary);
-  opacity: 0.5;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
 }
 
 /* Buttons */
 .btn-glass {
-  background: rgba(211, 228, 136, 0.15);
+  background: rgba(20, 18, 28, 0.7);
   backdrop-filter: blur(var(--blur-glass));
   border: 1px solid var(--color-border);
   color: var(--color-text-primary);
   border-radius: var(--radius-md);
   padding: 8px 16px;
   font-family: var(--font-family-body);
-  font-size: 10px;
-  font-weight: 500;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
   line-height: var(--line-height-body);
   letter-spacing: var(--letter-spacing-body);
-  text-transform: uppercase;
   transition: all var(--duration-fast) var(--easing-standard);
 }
 
 .btn-glass:hover {
-  background: rgba(211, 228, 136, 0.25);
+  background: rgba(28, 24, 40, 0.9);
   border-color: var(--color-primary);
 }
 
@@ -286,28 +282,27 @@ input::placeholder, textarea::placeholder {
 }
 
 .btn-primary-glass {
-  background: var(--color-primary);
-  color: var(--color-background);
-  border: 1px solid var(--color-primary);
+  background: var(--color-tertiary);
+  color: #0a0a0f;
+  border: 1px solid var(--color-tertiary);
   border-radius: var(--radius-md);
   padding: 8px 16px;
   font-family: var(--font-family-body);
-  font-size: 10px;
+  font-size: var(--font-size-body);
   font-weight: 600;
   line-height: var(--line-height-body);
   letter-spacing: var(--letter-spacing-body);
-  text-transform: uppercase;
   transition: all var(--duration-fast) var(--easing-standard);
 }
 
 .btn-primary-glass:hover {
-  background: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
 }
 
 /* Badges */
 .badge-glass {
-  background: rgba(211, 228, 136, 0.15);
+  background: rgba(20, 18, 28, 0.7);
   backdrop-filter: blur(var(--blur-glass));
   border: 1px solid var(--color-border);
   color: var(--color-text-primary);
@@ -318,12 +313,11 @@ input::placeholder, textarea::placeholder {
   font-weight: 500;
   line-height: var(--line-height-body);
   letter-spacing: var(--letter-spacing-body);
-  text-transform: uppercase;
 }
 
 .badge-primary {
   background: var(--color-primary);
-  color: var(--color-background);
+  color: #0a0a0f;
   border: 1px solid var(--color-primary);
 }
 
@@ -350,47 +344,43 @@ input::placeholder, textarea::placeholder {
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-family-body);
-  font-size: 10px;
+  font-size: var(--font-size-body);
 }
 
 .table-glass th {
   text-align: left;
   padding: 8px 12px;
-  font-family: var(--font-family-body);
-  font-size: 9px;
+  font-family: var(--font-family-headline);
+  font-size: 12px;
   font-weight: 600;
   line-height: var(--line-height-body);
-  letter-spacing: var(--letter-spacing-body);
-  text-transform: uppercase;
   color: var(--color-text-secondary);
-  border-bottom: 1px solid var(--color-border-dark);
-  background: rgba(211, 228, 136, 0.05);
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(20, 18, 28, 0.6);
 }
 
 .table-glass td {
   padding: 8px 12px;
   font-family: var(--font-family-body);
-  font-size: 10px;
-  font-weight: 300;
+  font-size: var(--font-size-body);
+  font-weight: 400;
   line-height: var(--line-height-body);
-  letter-spacing: var(--letter-spacing-body);
-  text-transform: uppercase;
   color: var(--color-text-primary);
-  border-bottom: 1px solid var(--color-border-dark);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .table-glass tr:hover td {
-  background: rgba(211, 228, 136, 0.05);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .table-glass tr.selected td {
-  background: rgba(211, 228, 136, 0.1);
+  background: rgba(211, 228, 136, 0.08);
 }
 
 /* Progress bar */
 .progress-glass {
-  height: 4px;
-  background: rgba(211, 228, 136, 0.1);
+  height: 6px;
+  background: rgba(20, 18, 28, 0.8);
   border-radius: var(--radius-full);
   overflow: hidden;
 }
@@ -405,13 +395,13 @@ input::placeholder, textarea::placeholder {
 /* Code/pre blocks */
 pre, code {
   font-family: var(--font-family-body);
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
 .pre-glass {
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--color-border-dark);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 12px;
   overflow-x: auto;
@@ -419,8 +409,8 @@ pre, code {
 
 /* Progress bar from daisyUI override */
 .progress {
-  height: 4px;
-  background: rgba(211, 228, 136, 0.1);
+  height: 6px;
+  background: rgba(20, 18, 28, 0.8);
   border-radius: var(--radius-full);
 }
 
@@ -432,22 +422,23 @@ pre, code {
 
 /* Alerts */
 .alert-glass {
-  background: rgba(211, 228, 136, 0.1);
+  background: rgba(20, 18, 28, 0.85);
   backdrop-filter: blur(var(--blur-glass));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 12px 16px;
+  color: var(--color-text-primary);
 }
 
 .alert-error-glass {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
   color: #fca5a5;
 }
 
 .alert-success-glass {
-  background: rgba(34, 197, 94, 0.15);
-  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.4);
   color: #86efac;
 }
 

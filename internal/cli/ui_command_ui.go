@@ -8,6 +8,7 @@ import (
 
 	"github.com/barceloch/codixai/internal/analysis"
 	"github.com/barceloch/codixai/internal/application"
+	"github.com/barceloch/codixai/internal/claims"
 	"github.com/barceloch/codixai/internal/domain"
 	"github.com/barceloch/codixai/internal/integrations/git"
 	desktopui "github.com/barceloch/codixai/ui"
@@ -56,9 +57,10 @@ func runUI(ctx context.Context, env *Env) error {
 		return err
 	}
 	return desktopui.Run(ctx, desktopui.Options{
-		Title: "Codixai",
-		Root:  root,
-		Audit: auditRunner(),
+		Title:  "Codixai",
+		Root:   root,
+		Audit:  auditRunner(),
+		Verify: verifyRunner(),
 	})
 }
 
@@ -177,5 +179,43 @@ func (a progressAnalyzer) Rules() []domain.Rule {
 func (a progressAnalyzer) report(progress desktopui.AuditProgress) {
 	if a.progress != nil {
 		a.progress(progress)
+	}
+}
+
+// verifyRunner builds the read-only verification use case for the window.
+//
+// The window sends the repository it holds, the base revision and the claim
+// file the person chose, so every run resolves the root again and wires the
+// same providers as 'codixai verify': the arguments of the frontend are
+// validated exactly like the arguments of the command line.
+func verifyRunner() desktopui.VerifyFunc {
+	return func(ctx context.Context, request desktopui.VerifyRequest) (*application.VerifyResult, error) {
+		root, err := resolveRoot(request.Root)
+		if err != nil {
+			return nil, err
+		}
+		if err := checkGitRepository(root); err != nil {
+			return nil, err
+		}
+		source, err := git.New(root)
+		if err != nil {
+			return nil, sanitizeError(err, root)
+		}
+		result, err := application.RunVerify(ctx, application.VerifyRequest{
+			Root:        root,
+			Base:        request.Base,
+			ClaimsPath:  request.ClaimsPath,
+			Source:      source,
+			Loader:      claims.Loader{},
+			Evaluator:   claims.NewEvaluator(claims.WithRoot(root), claims.WithBase(request.Base)),
+			ToolVersion: Version,
+		})
+		if err != nil {
+			return nil, sanitizeError(err, root)
+		}
+		if result == nil {
+			return nil, fmt.Errorf("the verification did not produce a result for %s", displayPath(root))
+		}
+		return result, nil
 	}
 }

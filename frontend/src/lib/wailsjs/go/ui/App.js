@@ -14,6 +14,10 @@ export function CancelAudit(arg1) {
   return window['go']['ui']['App']['CancelAudit'](arg1);
 }
 
+export function ChooseFile(arg1, arg2) {
+  return window['go']['ui']['App']['ChooseFile'](arg1, arg2);
+}
+
 export function ChooseRepository(arg1) {
   return window['go']['ui']['App']['ChooseRepository'](arg1);
 }
@@ -24,4 +28,16 @@ export function Export(arg1) {
 
 export function Root() {
   return window['go']['ui']['App']['Root']();
+}
+
+export function Verify(arg1) {
+  return window['go']['ui']['App']['Verify'](arg1);
+}
+
+export function VerifyAsync(arg1, arg2) {
+  return window['go']['ui']['App']['VerifyAsync'](arg1, arg2);
+}
+
+export function Visualize(arg1) {
+  return window['go']['ui']['App']['Visualize'](arg1);
 }

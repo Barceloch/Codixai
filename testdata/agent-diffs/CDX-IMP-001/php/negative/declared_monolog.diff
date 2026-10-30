@@ -1,0 +1,11 @@
+diff --git a/Logger.php b/Logger.php
+index 1111111..2222222 100644
+--- a/Logger.php
++++ b/Logger.php
+@@ -1,5 +1,6 @@
+ <?php
+ 
++use Monolog\Logger;
+ 
+ class Logger {
+     public function log() {

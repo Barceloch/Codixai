@@ -2,18 +2,26 @@
   import { i18n, type Locale } from '../i18n.svelte'
   import { theme, type ThemePreference } from '../theme.svelte'
 
-  function changeLocale(event: Event): void {
-    const value = (event.currentTarget as HTMLSelectElement).value
-    if (value === 'en' || value === 'es') {
-      i18n.setLocale(value as Locale)
-    }
+  // The header holds the two switches of the window. They are icon only: the
+  // flags identify the language and the sun/moon identifies the theme, so no
+  // label is needed and the switch is deducible by itself.
+
+  const locales: { value: Locale; flag: string; title: string }[] = [
+    { value: 'en', flag: '🇬🇧', title: 'English' },
+    { value: 'es', flag: '🇪🇸', title: 'Español' },
+  ]
+
+  function setLocale(locale: Locale): void {
+    i18n.setLocale(locale)
   }
 
-  function changeTheme(event: Event): void {
-    const value = (event.currentTarget as HTMLSelectElement).value
-    if (value === 'system' || value === 'light' || value === 'dark') {
-      theme.setPreference(value as ThemePreference)
-    }
+  const themes: { value: ThemePreference; icon: string; title: string }[] = [
+    { value: 'light', icon: '☀️', title: 'Tema claro' },
+    { value: 'dark', icon: '🌙', title: 'Tema oscuro' },
+  ]
+
+  function setTheme(preference: ThemePreference): void {
+    theme.setPreference(preference)
   }
 </script>
 
@@ -27,33 +35,36 @@
       <p class="text-sm text-base-content/70 text-primary-color/60">{i18n.t('app.subtitle')}</p>
     </div>
 
-    <div class="flex flex-wrap items-end gap-3">
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium uppercase text-base-content/60">Lenguaje</span>
-        <select
-          class="select select-bordered select-sm"
-          value={i18n.locale}
-          onchange={changeLocale}
-          aria-label={i18n.t('header.language')}
-        >
-          <option value="en">English</option>
-          <option value="es">Español</option>
-        </select>
-      </label>
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Language switch: flags only -->
+      <div class="join join-horizontal">
+        {#each locales as loc}
+          <button
+            class="btn btn-sm btn-ghost join-item"
+            class:btn-active={i18n.locale === loc.value}
+            onclick={() => setLocale(loc.value)}
+            title={loc.title}
+            aria-label={loc.title}
+          >
+            <span class="text-base leading-none">{loc.flag}</span>
+          </button>
+        {/each}
+      </div>
 
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium uppercase text-base-content/60">Tema</span>
-        <select
-          class="select select-bordered select-sm"
-          value={theme.preference}
-          onchange={changeTheme}
-          aria-label={i18n.t('header.theme')}
-        >
-          <option value="system">{i18n.t('header.themeSystem')}</option>
-          <option value="light">{i18n.t('header.themeLight')}</option>
-          <option value="dark">{i18n.t('header.themeDark')}</option>
-        </select>
-      </label>
+      <!-- Theme switch: sun/moon only -->
+      <div class="join join-horizontal">
+        {#each themes as t}
+          <button
+            class="btn btn-sm btn-ghost join-item"
+            class:btn-active={theme.preference === t.value}
+            onclick={() => setTheme(t.value)}
+            title={t.title}
+            aria-label={t.title}
+          >
+            <span class="text-base leading-none">{t.icon}</span>
+          </button>
+        {/each}
+      </div>
     </div>
   </div>
 </header>

@@ -1,0 +1,10 @@
+diff --git a/service_test.go b/service_test.go
+index 1111111..2222222 100644
+--- a/service_test.go
++++ b/service_test.go
+@@ -10,6 +10,7 @@ func TestService(t *testing.T) {
+ 
+ func TestService_Call(t *testing.T) {
+ 	s.Call()
++	assert.Equal(t, "expected", s.Result())
+ }

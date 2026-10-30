@@ -13,14 +13,27 @@ import {
   Audit,
   AuditAsync,
   CancelAudit,
+  ChooseFile,
   ChooseRepository,
   Export,
   Root,
+  Verify,
+  VerifyAsync,
 } from './wailsjs/go/ui/App'
 import { EventsOn } from './wailsjs/runtime/runtime'
 import type { ui } from './wailsjs/go/models'
 
-export { Audit, AuditAsync, CancelAudit, ChooseRepository, Export, Root }
+export {
+  Audit,
+  AuditAsync,
+  CancelAudit,
+  ChooseFile,
+  ChooseRepository,
+  Export,
+  Root,
+  Verify,
+  VerifyAsync,
+}
 
 // isBridgeAvailable reports whether the window runtime injected the
 // bindings. A plain browser (the Vite dev server without Wails) has no
@@ -41,4 +54,11 @@ export function onAuditEvent(
   handler: (event: ui.AuditEvent) => void,
 ): () => void {
   return EventsOn('audit:event', handler)
+}
+
+// onVerifyEvent subscribes to the events of the asynchronous verification.
+export function onVerifyEvent(
+  handler: (event: ui.VerifyEvent) => void,
+): () => void {
+  return EventsOn('verify:event', handler)
 }

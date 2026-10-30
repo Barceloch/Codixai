@@ -1,0 +1,6 @@
+{
+  "require": {
+    "symfony/http-client": "^6.4",
+    "monolog/monolog": "^3.4"
+  }
+}

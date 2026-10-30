@@ -12,7 +12,68 @@ branch.
 
 ## [Unreleased]
 
-### Added — Reliability improvements (towards v0.1.0-rc.2)
+### Added — Release v0.1.0-rc.2 (precompiled binaries)
+
+- **Precompiled binaries for Linux and Windows on x86_64.** The release
+  publishes four packages: a static CLI and a CLI+UI binary for Linux, and a
+  CLI and a CLI+UI binary for Windows. No Go toolchain is needed to run them.
+- **Reproducible release workflow** (`.github/workflows/release.yml`): it
+  builds the four binaries on the runners, runs the Go checks before
+  packaging, runs a smoke test of the CLI and of the Linux window under
+  Xvfb, packages the artifacts with
+  `scripts/release/package.sh`, writes `SHA256SUMS`, verifies the checksums,
+  checks the contents of every package and publishes a GitHub Release on a
+  `v*` tag.
+- **Packaging script** (`scripts/release/package.sh`): deterministic archives
+  with the binary, the licence, a `VERSION` file, a `README.md`, a
+  `README.es.md` and no source, no VCS data and no local file.
+- **Spanish usage guide** (`docs/guides/codixai-usage.es.md`): installation,
+  CLI reference, the graphical interface, the claim file format and the
+  verification status of every binary.
+
+### Fixed — The verify screen of the graphical interface
+
+The verify tab was committed half done: the Go adapter required a Go callback
+that JavaScript cannot pass, the bindings were never generated and the screen
+could not be built. It is now a real, event driven screen.
+
+- **`ui/ui.go`**: `VerifyRequest` lost its Go callback and is now JSON
+  serializable; `VerifyAsync` runs in a goroutine and emits `verify:event`
+  events with the same kinds as the audit (`progress`, `done`, `error`,
+  `cancelled`); a new `ChooseFile(title, extensions)` opens the native file
+  dialog; the emitter is injectable so the tests observe events without a
+  window.
+- **`internal/cli/ui_command_ui.go`**: the window composes the same verify use
+  case as the CLI (`application.RunVerify` with `claims.Loader{}` and
+  `claims.NewEvaluator`), so the screen and the command line produce the same
+  document.
+- **Wails bindings regenerated** (`frontend/src/lib/wailsjs/**`): the verify
+  screen now imports `Verify`, `VerifyAsync`, `ChooseFile` and
+  `onVerifyEvent` from the generated bindings.
+- **`frontend/src/App.svelte`**: the duplicated script block and the malformed
+  verify markup are gone; the verify tab renders a single self contained
+  component.
+- **`frontend/src/lib/components/VerifyForm.svelte`**: one `runID` per run,
+  event driven progress, state/path filters, sort by id or state, a detail
+  panel with evidence and limitations, and JSON only export.
+- **`frontend/src/lib/components/AuditForm.svelte`** and
+  **`FindingDetail.svelte`**: repaired the markup that did not build.
+
+### Changed — Readability of the interface
+
+The dark theme was invisible: every text was a dark purple on black and the
+monospace uppercase body made the interface unreadable at any size.
+
+- **Palette**: the accent stays lime, but every text now sits on a light
+  value (`#e8e4f0` on `#0a0a0f`, secondary `#a098b8`), the glass surfaces are
+  dark instead of lime, the primary button is blue and the cards are dark.
+- **Typography**: the body is no longer uppercase and the letter spacing is
+  normal; the headline keeps the system font.
+- **Header**: the language and theme selectors are now icon only switches
+  (flags for the language, sun/moon for the theme) with no labels, so the
+  switches are deducible by themselves.
+
+### Reliability improvements (towards v0.1.0-rc.2)
 
 - **CDX-IMP-001 false-positive fixes.** The import extraction for Go now uses
   lexical segments to distinguish real import declarations from text that only

@@ -21,12 +21,12 @@
 package ui
 
 import (
-	"github.com/barceloch/codixai/internal/index"
-	"github.com/barceloch/codixai/internal/visualization"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/barceloch/codixai/internal/index"
+	"github.com/barceloch/codixai/internal/visualization"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,6 +50,10 @@ const AutoQuitEnv = "CODIXAI_UI_AUTOQUIT"
 // AuditEventName is the event that carries the progress of an asynchronous
 // audit and its outcome.
 const AuditEventName = "audit:event"
+
+// VerifyEventName is the event that carries the progress of an asynchronous
+// verification and its outcome.
+const VerifyEventName = "verify:event"
 
 // The phases of an asynchronous audit.
 //
@@ -225,17 +229,23 @@ type Options struct {
 // evaluated.
 type VerifyFunc func(ctx context.Context, request VerifyRequest) (*application.VerifyResult, error)
 
-// VerifyRequest is the request that the adapter sends to the verification
-// composition root.
+// VerifyRequest is the request that the window sends to the verification
+// use case.
+//
+// Every field is serializable, so the frontend builds the request as a plain
+// JSON object: the progress of the run travels through the verify:event
+// event and never through a callback of the request.
 type VerifyRequest struct {
 	// Root is the absolute path of the repository.
-	Root string
+	Root string `json:"root"`
 	// Base is the base revision of the comparison, as the user wrote it.
-	Base string
+	Base string `json:"base"`
 	// ClaimsPath is the path of the claim file to verify.
-	ClaimsPath string
-	// Progress reports the phases of the run. It may be nil.
-	Progress func(VerifyProgress)
+	ClaimsPath string `json:"claims_path"`
+	// RunID identifies the run. The window generates it so that the
+	// progress events and the export refer to the same run. When it is
+	// empty the adapter generates one.
+	RunID string `json:"run_id,omitempty"`
 }
 
 // VerifyProgress reports one phase of a verification.
@@ -254,15 +264,70 @@ type VerifyProgress struct {
 	Error string `json:"error,omitempty"`
 }
 
+// VerifyView is the result of a verification that the window renders.
+//
+// The Document field is the same versioned document that the command line
+// writes with --format json: the interface never reinterprets a claim, it
+// renders the state that the use case decided. The other fields are the
+// context that the screen needs to present the document; they are not part
+// of the document and never change its bytes.
+type VerifyView struct {
+	// RunID identifies the run that produced the view.
+	RunID string `json:"run_id"`
+	// Root is the verified repository.
+	Root string `json:"root"`
+	// Base is the base revision of the comparison.
+	Base string `json:"base"`
+	// Failed states whether a claim reaches the failure threshold.
+	Failed bool `json:"failed"`
+	// Contradicted counts the contradicted claims.
+	Contradicted int `json:"contradicted"`
+	// Unresolved counts the unresolved claims.
+	Unresolved int `json:"unresolved"`
+	// Document is the verification document produced by the use case.
+	Document *application.VerificationDocument `json:"document"`
+}
+
+// VerifyEvent is the payload of the verify:event event.
+//
+// The window receives one event per progress step and one final event with
+// the document, the error or the cancellation. The frontend never polls the
+// adapter: the events carry the whole state.
+type VerifyEvent struct {
+	// RunID identifies the run.
+	RunID string `json:"run_id"`
+	// Kind is progress, done, error or cancelled.
+	Kind string `json:"kind"`
+	// Progress carries the step when Kind is progress.
+	Progress *VerifyProgress `json:"progress,omitempty"`
+	// View carries the document when Kind is done.
+	View *VerifyView `json:"view,omitempty"`
+	// Error explains the failure when Kind is error.
+	Error string `json:"error,omitempty"`
+}
+
 // VerifyPhase are the phases of a verification, in order.
 const (
+	// VerifyPhaseValidating means the adapter is validating the request.
 	VerifyPhaseValidating = "validating"
+	// VerifyPhaseCollecting means the changes are being collected and the
+	// claim file is being evaluated.
 	VerifyPhaseCollecting = "collecting"
-	VerifyPhaseCollected  = "collected"
+	// VerifyPhaseCollected means the changes were collected. The adapter
+	// does not observe it today: the use case exposes no hook for it.
+	VerifyPhaseCollected = "collected"
+	// VerifyPhaseEvaluating means the claims are being evaluated. The
+	// adapter does not observe it today: the use case exposes no hook for
+	// it.
 	VerifyPhaseEvaluating = "evaluating"
-	VerifyPhaseEvaluated  = "evaluated"
-	VerifyPhaseDone       = "done"
-	VerifyPhaseError      = "error"
+	// VerifyPhaseEvaluated means the claims were evaluated. The adapter
+	// does not observe it today: the use case exposes no hook for it.
+	VerifyPhaseEvaluated = "evaluated"
+	// VerifyPhaseDone means the document is ready.
+	VerifyPhaseDone = "done"
+	// VerifyPhaseError means the verification failed.
+	VerifyPhaseError = "error"
+	// VerifyPhaseCancelled means the person cancelled the run.
 	VerifyPhaseCancelled = "cancelled"
 )
 
@@ -285,6 +350,11 @@ type App struct {
 	audit  AuditFunc
 	verify VerifyFunc
 	root   string
+
+	// emitEvent replaces the event emitter of the window. It is nil by
+	// default, and the adapter then emits through the runtime of Wails.
+	// The tests inject it to observe the events without a window.
+	emitEvent func(name string, data any)
 
 	mu   sync.Mutex
 	jobs map[string]*auditJob
@@ -502,34 +572,36 @@ func (a *App) CancelAudit(runID string) error {
 	return nil
 }
 
-// VerifyAsync runs a verification of a claim file against the repository
-// changes and returns the result through the verify:event event. The
-// request carries the root repository path, the base revision, the claims
-// file path, and the progress callback that reports the real phases of
-// the use case. The adapter composes the use case exactly like the CLI: it
-// collects the changes between the base and the head of the repository,
-// loads the claim file, checks that the claims are about that range and
-// evaluates every claim against the changes. The verification never
-// modifies the analyzed repository: the manifests and the reports of the
-// repository are read as data. Cancellation is cooperative: the context is
-// checked between steps.
-func (a *App) VerifyAsync(request VerifyRequest, runID string) (*VerifyProgress, error) {
+// VerifyAsync starts a verification of a claim file against the repository
+// changes and returns its first progress step.
+//
+// The run happens in its own goroutine and reports its phases and its outcome
+// through the verify:event event, so the window stays responsive and can
+// cancel the run with CancelAudit. The request carries the root repository,
+// the base revision and the claims file; the adapter validates them before
+// the use case runs. The verification never modifies the analyzed
+// repository: the manifests and the reports of the repository are read as
+// data. Cancellation is cooperative: the context is checked between steps.
+func (a *App) VerifyAsync(request VerifyRequest, runID string) (*VerifyEvent, error) {
 	root := strings.TrimSpace(request.Root)
 	if root == "" {
 		return nil, fmt.Errorf("the verification needs the root of the repository: write it in the repository field")
 	}
 	base := strings.TrimSpace(request.Base)
 	if base == "" {
-		return nil, fmt.Errorf("the verification needs a base revision")
+		return nil, fmt.Errorf("the verification needs a base revision: write one such as 'main' in the base field")
 	}
 	claimsPath := strings.TrimSpace(request.ClaimsPath)
 	if claimsPath == "" {
 		return nil, fmt.Errorf("the verification needs the path of the claim file: load it in the claims file field")
 	}
-	if request.Progress == nil {
-		return nil, fmt.Errorf("the verification needs a progress callback")
+	if a.verify == nil {
+		return nil, fmt.Errorf("the window has no verification use case: start it with 'codixai ui'")
 	}
 	runID = strings.TrimSpace(runID)
+	if runID == "" {
+		runID = strings.TrimSpace(request.RunID)
+	}
 	if runID == "" {
 		runID = newRunID()
 	}
@@ -549,32 +621,46 @@ func (a *App) VerifyAsync(request VerifyRequest, runID string) (*VerifyProgress,
 	a.mu.Unlock()
 
 	progress := &VerifyProgress{RunID: runID, Phase: VerifyPhaseValidating}
-	go a.runVerifyAsync(ctx, runID, root, base, claimsPath, request.Progress)
-	return progress, nil
+	go a.runVerifyAsync(ctx, runID, root, base, claimsPath)
+	return &VerifyEvent{RunID: runID, Kind: EventProgress, Progress: progress}, nil
 }
 
-// runVerifyAsync runs the verification and reports its phases and outcome.
-func (a *App) runVerifyAsync(ctx context.Context, runID, root, base, claimsPath string, progress func(VerifyProgress)) {
-	report := func(p VerifyProgress) {
-		p.RunID = runID
-		progress(p)
-	}
+// runVerifyAsync runs the verification and reports its phases and its
+// outcome through the verify:event event.
+//
+// Only the phases that the adapter can observe are reported: the collection
+// before the use case runs, because the adapter hands over the whole call,
+// and the end, because the use case returns the document. The use case
+// exposes no hook for the collection or the evaluation of the claims, so the
+// adapter does not claim to observe them.
+func (a *App) runVerifyAsync(ctx context.Context, runID, root, base, claimsPath string) {
+	a.emitVerify(VerifyEvent{
+		RunID:    runID,
+		Kind:     EventProgress,
+		Progress: &VerifyProgress{RunID: runID, Phase: VerifyPhaseCollecting},
+	})
 
-	report(VerifyProgress{Phase: VerifyPhaseCollecting})
-
-	result, err := a.verify(ctx, VerifyRequest{Root: root, Base: base, ClaimsPath: claimsPath, Progress: progress})
+	result, err := a.verify(ctx, VerifyRequest{Root: root, Base: base, ClaimsPath: claimsPath, RunID: runID})
 	if err != nil {
 		a.removeJob(runID)
 		if ctx.Err() != nil {
-			report(VerifyProgress{Phase: VerifyPhaseCancelled})
+			a.emitVerify(VerifyEvent{
+				RunID:    runID,
+				Kind:     EventCancelled,
+				Progress: &VerifyProgress{RunID: runID, Phase: VerifyPhaseCancelled},
+			})
 			return
 		}
-		report(VerifyProgress{Phase: VerifyPhaseError, Error: err.Error()})
+		a.emitVerify(VerifyEvent{RunID: runID, Kind: EventError, Error: err.Error()})
 		return
 	}
 	if result == nil || result.Document == nil {
 		a.removeJob(runID)
-		report(VerifyProgress{Phase: VerifyPhaseError, Error: "the verification did not produce a document: run 'codixai verify --base main --claims claims.json' in the terminal to see the error of the analysis"})
+		a.emitVerify(VerifyEvent{
+			RunID: runID,
+			Kind:  EventError,
+			Error: "the verification did not produce a document: run 'codixai verify --base main --claims claims.json' in the terminal to see the error of the analysis",
+		})
 		return
 	}
 
@@ -585,26 +671,64 @@ func (a *App) runVerifyAsync(ctx context.Context, runID, root, base, claimsPath 
 	}
 	a.mu.Unlock()
 
-	report(VerifyProgress{
-		Phase:         VerifyPhaseDone,
-		Total:         result.Document.Summary.Total,
-		Contradicted:  result.Contradicted,
-		Unresolved:    result.Unresolved,
+	view := &VerifyView{
+		RunID:        runID,
+		Root:         root,
+		Base:         base,
+		Failed:       result.Failed,
+		Contradicted: result.Contradicted,
+		Unresolved:   result.Unresolved,
+		Document:     result.Document,
+	}
+	a.emitVerify(VerifyEvent{
+		RunID: runID,
+		Kind:  EventDone,
+		View:  view,
+		Progress: &VerifyProgress{
+			RunID:        runID,
+			Phase:        VerifyPhaseDone,
+			Total:        result.Document.Summary.Total,
+			Contradicted: result.Contradicted,
+			Unresolved:   result.Unresolved,
+		},
 	})
 }
 
-// Verify runs a verification synchronously and returns the VerifyResult
-// directly. It is a convenience wrapper around VerifyAsync that blocks
-// until the verification completes.
+// Verify runs a verification synchronously and returns its result.
+//
+// It is the same use case as VerifyAsync, with the same validation of the
+// request, and it emits no event: the caller already holds the result.
 func (a *App) Verify(request VerifyRequest) (*application.VerifyResult, error) {
-	return a.verify(a.runtimeContext(), request)
+	root := strings.TrimSpace(request.Root)
+	if root == "" {
+		return nil, fmt.Errorf("the verification needs the root of the repository: write it in the repository field")
+	}
+	base := strings.TrimSpace(request.Base)
+	if base == "" {
+		return nil, fmt.Errorf("the verification needs a base revision: write one such as 'main' in the base field")
+	}
+	claimsPath := strings.TrimSpace(request.ClaimsPath)
+	if claimsPath == "" {
+		return nil, fmt.Errorf("the verification needs the path of the claim file: load it in the claims file field")
+	}
+	if a.verify == nil {
+		return nil, fmt.Errorf("the window has no verification use case: open it with 'codixai ui'")
+	}
+	runID := strings.TrimSpace(request.RunID)
+	if runID == "" {
+		runID = newRunID()
+	}
+	result, err := a.verify(a.runtimeContext(), VerifyRequest{Root: root, Base: base, ClaimsPath: claimsPath, RunID: runID})
+	if err != nil {
+		return nil, err
+	}
+	if result == nil || result.Document == nil {
+		return nil, fmt.Errorf("the verification did not produce a document: run 'codixai verify --base main --claims claims.json' in the terminal to see the error of the analysis")
+	}
+	a.storeVerifyResult(runID, root, result)
+	return result, nil
 }
 
-// ChooseRepository opens the native directory dialog and returns the path
-// that the person chose, or an empty string when the dialog is cancelled.
-//
-// The title comes from the frontend so that the dialog speaks the language
-// of the interface.
 // Visualize performs a structural visualization of the repository.
 // It returns symbols and dependencies found in the index.
 func (a *App) Visualize(root string) (*visualization.VisualizationResult, error) {
@@ -621,7 +745,11 @@ func (a *App) Visualize(root string) (*visualization.VisualizationResult, error)
 	return visualization.Visualize(idx), nil
 }
 
-
+// ChooseRepository opens the native directory dialog and returns the path
+// that the person chose, or an empty string when the dialog is cancelled.
+//
+// The title comes from the frontend so that the dialog speaks the language
+// of the interface.
 func (a *App) ChooseRepository(title string) (string, error) {
 	ctx := a.ctx
 	if ctx == nil {
@@ -632,6 +760,30 @@ func (a *App) ChooseRepository(title string) (string, error) {
 		title = "Select the repository to audit"
 	}
 	return runtime.OpenDirectoryDialog(ctx, runtime.OpenDialogOptions{Title: title})
+}
+
+// ChooseFile opens the native file dialog and returns the path that the
+// person chose, or an empty string when the dialog is cancelled.
+//
+// The title and the extensions come from the frontend so that the dialog
+// speaks the language of the interface and only offers the files that the
+// screen can read. An extension is written with its dot, for example
+// ".json"; the dialog shows them as "*.json" and accepts any of them.
+func (a *App) ChooseFile(title string, extensions []string) (string, error) {
+	ctx := a.ctx
+	if ctx == nil {
+		return "", fmt.Errorf("the window is not ready yet: wait for it to open and try again")
+	}
+	title = strings.TrimSpace(title)
+	if title == "" {
+		title = "Select a file"
+	}
+
+	var filters []runtime.FileFilter
+	if filter, ok := fileFilter(extensions); ok {
+		filters = []runtime.FileFilter{filter}
+	}
+	return runtime.OpenFileDialog(ctx, runtime.OpenDialogOptions{Title: title, Filters: filters})
 }
 
 // ExportRequest describes the report to write.
@@ -719,6 +871,17 @@ func (a *App) runtimeContext() context.Context {
 
 // storeResult keeps the document of a synchronous run for its export.
 func (a *App) storeResult(runID, root string, result *application.AuditResult) {
+	a.storeValue(runID, root, result)
+}
+
+// storeVerifyResult keeps the document of a synchronous verification for its
+// export.
+func (a *App) storeVerifyResult(runID, root string, result *application.VerifyResult) {
+	a.storeValue(runID, root, result)
+}
+
+// storeValue keeps the document of a finished run for its export.
+func (a *App) storeValue(runID, root string, result any) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.jobs == nil {
@@ -763,13 +926,32 @@ func (a *App) result(runID string) (any, string, error) {
 	return job.result, job.root, nil
 }
 
-// emit sends an event to the window.
+// emit sends an audit event to the window.
 func (a *App) emit(event AuditEvent) {
+	a.sendEvent(AuditEventName, event)
+}
+
+// emitVerify sends a verification event to the window.
+func (a *App) emitVerify(event VerifyEvent) {
+	a.sendEvent(VerifyEventName, event)
+}
+
+// sendEvent hands an event to the window.
+//
+// The injected emitter wins, so a test observes the events without a window.
+// Without it the event goes to the runtime of Wails, and only when the
+// runtime already gave its context: a run started before OnStartup has no
+// window to deliver to.
+func (a *App) sendEvent(name string, data any) {
+	if a.emitEvent != nil {
+		a.emitEvent(name, data)
+		return
+	}
 	ctx := a.ctx
 	if ctx == nil {
 		return
 	}
-	runtime.EventsEmit(ctx, AuditEventName, event)
+	runtime.EventsEmit(ctx, name, data)
 }
 
 // view builds the renderable result of a run.
@@ -858,6 +1040,34 @@ func exportExtension(format string) string {
 		return ".sarif"
 	}
 	return ".json"
+}
+
+// fileFilter builds the filter of the file dialog from a list of extensions.
+//
+// An extension is written with its dot, for example ".json"; the dialog shows
+// them as "*.json" and accepts any of them. The second result is false when
+// the list holds no usable extension, and the dialog then offers every file.
+func fileFilter(extensions []string) (runtime.FileFilter, bool) {
+	patterns := make([]string, 0, len(extensions))
+	names := make([]string, 0, len(extensions))
+	for _, extension := range extensions {
+		extension = strings.TrimSpace(extension)
+		if extension == "" {
+			continue
+		}
+		if !strings.HasPrefix(extension, ".") {
+			extension = "." + extension
+		}
+		patterns = append(patterns, "*"+extension)
+		names = append(names, strings.ToUpper(strings.TrimPrefix(extension, ".")))
+	}
+	if len(patterns) == 0 {
+		return runtime.FileFilter{}, false
+	}
+	return runtime.FileFilter{
+		DisplayName: strings.Join(names, ", "),
+		Pattern:     strings.Join(patterns, ";"),
+	}, true
 }
 
 // ensureOutsideRoot rejects a report path inside the audited repository.

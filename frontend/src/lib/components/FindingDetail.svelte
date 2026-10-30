@@ -95,6 +95,7 @@
             {#each finding.support.limitations as limitation}
               <li class="break-anywhere text-primary-color/70">{limitation}</li>
             {/each}
+          </ul>
           {:else}
             <p class="mt-1 text-sm text-base-content/70 text-primary-color/60">{i18n.t('detail.none')}</p>
           {/if}
@@ -117,8 +118,6 @@
             </p>
           </div>
         {/if}
-      </div>
-    {:else}
-      <p class="text-sm text-base-content/70 text-primary-color/60">{i18n.t('detail.empty')}</p>
     {/if}
+  </div>
 </aside>

@@ -1,0 +1,15 @@
+diff --git a/main.go b/main.go
+index 1111111..2222222 100644
+--- a/main.go
++++ b/main.go
+@@ -1,5 +1,6 @@
+ package main
+ 
+ import (
++	foo "fmt"
+ 	"os"
+ )
+ 
+ func main() {
++	foo.Println("hello")
+ }

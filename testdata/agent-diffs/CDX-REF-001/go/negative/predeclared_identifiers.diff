@@ -1,0 +1,13 @@
+diff --git a/main.go b/main.go
+index 1111111..2222222 100644
+--- a/main.go
++++ b/main.go
+@@ -5,6 +5,8 @@ import (
+ 	"fmt"
+ )
+ 
+ func main() {
++	var x = nil
++	var y error = fmt.Errorf("test")
+ 	fmt.Println("hello")
+ }

@@ -123,7 +123,6 @@
               </button>
             {/if}
           </div>
-        </div>
       </form>
     </div>
   </div>
@@ -136,8 +135,8 @@
 {/if}
 
 {#if running}
-  <div class="progress progress-glass aria-valuenow={progress?.total || 0} aria-valuemin="0" aria-valuemax="100" role="progressbar">
-    <div class="progress-glass-bar" style="width: {progress?.total ? Math.min(100, (progress.contradicted + progress.verified + progress.unresolved) / progress.total * 100) : 0}%"></div>
+  <div class="flex flex-col gap-1">
+    <progress class="progress progress-glass" max="100"></progress>
     <p class="text-sm text-base-content/70 text-primary-color/60">{progress?.phase}</p>
   </div>
 {/if}

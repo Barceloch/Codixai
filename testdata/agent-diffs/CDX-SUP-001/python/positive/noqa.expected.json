@@ -1,0 +1,4 @@
+{
+  "expected_rule_ids": ["CDX-IMP-001", "CDX-SUP-001"],
+  "expected_count": 2
+}

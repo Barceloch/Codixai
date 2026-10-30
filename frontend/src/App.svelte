@@ -15,15 +15,12 @@
   import { i18n } from './lib/i18n.svelte'
   import {
     AuditAsync,
-    VerifyAsync,
     CancelAudit,
     ChooseRepository,
-    ChooseFile,
     Export,
     Root,
     isBridgeAvailable,
     onAuditEvent,
-    onVerifyEvent,
   } from './lib/bridge'
   import { ui } from './lib/wailsjs/go/models'
   import type { domain } from './lib/wailsjs/go/models'
@@ -40,8 +37,8 @@
   let origin = $state('worktree')
   let base = $state('')
   let running = $state(false)
-  let progress = $state<ui.AuditProgress | ui.VerifyProgress | null>(null)
-  let view = $state<ui.AuditView | ui.VerifyView | null>(null)
+  let progress = $state<ui.AuditProgress | null>(null)
+  let view = $state<ui.AuditView | null>(null)
   let error = $state('')
   let notice = $state('')
   let runID = $state('')
@@ -54,28 +51,6 @@
     visible.find(
       (finding, index) => findingKey(finding, index) === selectedKey,
     ) ?? null,
-  )
-
-  const claims = $derived(view?.document?.results ?? [])
-  const visibleClaims = $derived(
-    view?.document?.results
-      .filter((r) => {
-        if (filters.state && r.status !== filters.state) return false
-        if (filters.severity && r.claim?.severity !== filters.severity) return false
-        if (filters.path && !r.claim?.paths?.some((p: string) => p.toLowerCase().includes(filters.path.toLowerCase()))) return false
-        return true
-      })
-      .sort((a, b) => {
-        const dir = filters.direction === 'desc' ? -1 : 1
-        if (filters.sort === 'id') return a.claim.id.localeCompare(b.claim.id) * dir
-        if (filters.sort === 'state') return a.status.localeCompare(b.status) * dir
-        if (filters.sort === 'severity') return 0
-        return 0
-      })
-  )
-
-  const selectedClaim = $derived(
-    view?.document?.results?.find((r, i) => `${r.claim.id}:${i}` === selectedKey) ?? null,
   )
 
   // newRunID identifies a run before it starts, so the progress events and
@@ -182,11 +157,6 @@
     selectedKey = findingKey(finding, index)
   }
 
-  // selectClaim remembers the row that the person chose.
-  function selectClaim(claim: domain.ClaimResult, index: number): void {
-    selectedKey = `${claim.claim.id}:${index}`
-  }
-
   // applyEvent folds one event of the run into the state of the screen.
   function applyEvent(event: ui.AuditEvent): void {
     if (!event || event.run_id !== runID) {
@@ -202,168 +172,6 @@
       view = event.view
       selectedKey = ''
       filters = { ...defaultFilters }
-      return
-    }
-    if (event.kind === 'cancelled') {
-      running = false
-      progress = null
-      return
-    }
-    if (event.kind === 'error') {
-      running = false
-      progress = null
-      error = event.error || i18n.t('audit.error.generic')
-    }
-  }
-
-  // applyVerifyEvent folds one event of the verification run into the state of the screen.
-  function applyVerifyEvent(event: ui.VerifyEvent): void {
-    if (!event || event.run_id !== runID) {
-      return
-    }
-    if (event.kind === 'progress' && event.progress) {
-      progress = event.progress
-      return
-    }
-    if (event.kind === 'done' && event.view) {
-      running = false
-      progress = null
-      view = event.view
-      selectedKey = ''
-      return
-    }
-    if (event.kind === 'cancelled') {
-      running = false
-      progress = null
-      return
-    }
-    if (event.kind === 'error') {
-      running = false
-      progress = null
-      error = event.error || i18n.t('audit.error.generic')
-    }
-  }
-
-  // runVerify starts the asynchronous verification and waits for its events.
-  async function runVerify(): Promise<void> {
-    if (running) {
-      return
-    }
-    if (!root.trim()) {
-      error = i18n.t('verify.error.noRoot')
-      return
-    }
-    if (!base.trim()) {
-      error = i18n.t('verify.error.noBase')
-      return
-    }
-    // claimsPath would be set via VerifyForm
-    error = ''
-    notice = ''
-    progress = null
-    view = null
-    selectedKey = ''
-    runID = newRunID()
-    running = true
-    try {
-      // The VerifyForm will call VerifyAsync directly
-      // We just need to ensure the form has the right data
-    } catch (cause) {
-      running = false
-      progress = null
-      error = describeError(cause)
-    }
-  }
-
-  // cancel asks the adapter to stop the run.
-  async function cancel(): Promise<void> {
-    if (!runID) {
-      return
-    }
-    try {
-      await CancelAudit(runID)
-    } catch (cause) {
-      error = describeError(cause)
-    }
-  }
-
-  // exportReport writes the finished document through the native dialog.
-  async function exportReport(format: 'json' | 'sarif'): Promise<void> {
-    if (!view) {
-      return
-    }
-    error = ''
-    notice = ''
-    try {
-      const path = await Export(
-        new ui.ExportRequest({
-          run_id: view.run_id,
-          format,
-          suggested_name: `codixai-${activeTab}.${format}`,
-          title: i18n.t('export.saveTitle'),
-        }),
-      )
-      notice = path
-        ? i18n.t('export.saved', { path })
-        : i18n.t('export.cancelled')
-    } catch (cause) {
-      error = describeError(cause)
-    }
-  }
-
-  // selectFinding remembers the row that the person chose.
-  function selectFinding(finding: domain.Finding, index: number): void {
-    selectedKey = findingKey(finding, index)
-  }
-
-  // selectClaim remembers the row that the person chose.
-  function selectClaim(claim: domain.ClaimResult, index: number): void {
-    selectedKey = `${claim.claim.id}:${index}`
-  }
-
-  // applyEvent folds one event of the run into the state of the screen.
-  function applyEvent(event: ui.AuditEvent): void {
-    if (!event || event.run_id !== runID) {
-      return
-    }
-    if (event.kind === 'progress' && event.progress) {
-      progress = event.progress
-      return
-    }
-    if (event.kind === 'done' && event.view) {
-      running = false
-      progress = null
-      view = event.view
-      selectedKey = ''
-      filters = { ...defaultFilters }
-      return
-    }
-    if (event.kind === 'cancelled') {
-      running = false
-      progress = null
-      return
-    }
-    if (event.kind === 'error') {
-      running = false
-      progress = null
-      error = event.error || i18n.t('audit.error.generic')
-    }
-  }
-
-  // applyVerifyEvent folds one event of the verification run into the state of the screen.
-  function applyVerifyEvent(event: ui.VerifyEvent): void {
-    if (!event || event.run_id !== runID) {
-      return
-    }
-    if (event.kind === 'progress' && event.progress) {
-      progress = event.progress
-      return
-    }
-    if (event.kind === 'done' && event.view) {
-      running = false
-      progress = null
-      view = event.view
-      selectedKey = ''
       return
     }
     if (event.kind === 'cancelled') {
@@ -396,12 +204,8 @@
       return
     }
     const stopAudit = onAuditEvent(applyEvent)
-    const stopVerify = onVerifyEvent(applyVerifyEvent)
     void prefill()
-    return () => {
-      stopAudit()
-      stopVerify()
-    }
+    return stopAudit
   })
 </script>
 
@@ -492,100 +296,7 @@
     {/if}
 
     {#if activeTab === 'verify'}
-      <VerifyForm
-        bind:root
-        bind:base
-        bind:claimsPath
-        bind:reportPath
-        {running}
-        {progress}
-        {error}
-        {bridgeAvailable}
-        onrun={runVerify}
-        oncancel={cancel}
-      />
-
-      {#if notice}
-        <div class="alert alert-success" role="status">
-          <span class="break-anywhere">{notice}</span>
-        </div>
-      {/if}
-
-      {#if view}
-        <div class="card bg-base-100 shadow-xl mt-4">
-          <div class="card-body">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-              <h2 class="card-title">{i18n.t('verify.results')}</h2>
-              <div class="flex flex-wrap gap-2">
-                <button class="btn btn-outline btn-sm" onclick={() => exportReport('json')}>{i18n.t('export.json')}</button>
-                <button class="btn btn-outline btn-sm" onclick={() => exportReport('sarif')}>{i18n.t('export.sarif')}</button>
-              </div>
-            </div>
-
-            <div class="overflow-x-auto">
-              <table class="table table-zebra w-full">
-                <thead>
-                  <tr>
-                    <th onclick={() => { filters.sort = 'id'; filters.direction = filters.sort === 'id' && filters.direction === 'asc' ? 'desc' : 'asc' }} class="cursor-pointer">{i18n.t('verify.claimId')}</th>
-                    <th onclick={() => { filters.sort = 'state'; filters.direction = filters.sort === 'state' && filters.direction === 'asc' ? 'desc' : 'asc' }} class="cursor-pointer">{i18n.t('verify.state')}</th>
-                    <th onclick={() => { filters.sort = 'severity'; filters.direction = filters.direction === 'severity' && filters.direction === 'asc' ? 'desc' : 'asc' }} class="cursor-pointer">{i18n.t('verify.severity')}</th>
-                    <th>{i18n.t('verify.claim')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each visibleClaims as result, index}
-                    <tr class:selected={selectedKey === `${result.claim.id}:${index}`} onclick={() => selectClaim(result, index)}>
-                      <td>{result.claim.id}</td>
-                      <td>
-                        <span class="badge badge-sm" class:badge-success={result.status === 'verified'} class:badge-error={result.status === 'contradicted'} class:badge-warning={result.status === 'unresolved'}>
-                          {result.status}
-                        </span>
-                      </td>
-                      <td></td>
-                      <td>{result.claim.type}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-
-            {#if selected}
-              <div class="divider my-4"></div>
-              <div class="prose prose-sm max-w-none">
-                <h4>{i18n.t('verify.detail')}</h4>
-                <p><strong>{i18n.t('verify.claim')}:</strong> {selected.claim.type}</p>
-                <p><strong>{i18n.t('verify.paths')}:</strong> {selected.claim.paths.join(', ')}</p>
-                <p><strong>{i18n.t('verify.message')}:</strong> {selected.message}</p>
-                {#if selected.evidence?.length}
-                  <h5>{i18n.t('verify.evidence')}</h5>
-                  <ul>
-                    {#each selected.evidence as ev}
-                      <li>{ev.kind}: {ev.ref} - {ev.detail}</li>
-                    {/each}
-                  </ul>
-                {/if}
-                {#if selected.limitations?.length}
-                  <h5>{i18n.t('verify.limitations')}</h5>
-                  <ul>
-                    {#each selected.limitations as lim}
-                      <li>{lim}</li>
-                    {/each}
-                  </ul>
-                {/if}
-              </div>
-            {/if}
-
-            <div class="flex flex-wrap gap-2 mt-4">
-              <button class="btn btn-outline btn-sm" onclick={() => exportReport('json')}>{i18n.t('export.json')}</button>
-              <button class="btn btn-outline btn-sm" onclick={() => exportReport('sarif')}>{i18n.t('export.sarif')}</button>
-            </div>
-        </div>
-      {:else if !running}
-        <div class="rounded-box border border-dashed border-base-300 bg-base-100 p-8 text-center">
-          <p class="font-medium">{i18n.t('verify.idle')}</p>
-          <p class="text-sm text-base-content/70">{i18n.t('verify.idleHint')}</p>
-        </div>
-      {/if}
+      <VerifyForm />
     {/if}
   </main>
 

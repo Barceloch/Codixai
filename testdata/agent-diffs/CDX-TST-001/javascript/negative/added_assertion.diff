@@ -1,0 +1,10 @@
+diff --git a/service.test.js b/service.test.js
+index 1111111..2222222 100644
+--- a/service.test.js
++++ b/service.test.js
+@@ -5,6 +5,7 @@ describe('Service', () => {
+ 
+ it('calls the service', () => {
+     service.call()
++    expect(service.result).toBe('expected')
+ });

@@ -1,3 +1,105 @@
+export namespace application {
+	
+	export class VerificationSummary {
+	    total: number;
+	    by_status?: Record<string, number>;
+	
+	    static createFrom(source: any = {}) {
+	        return new VerificationSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.total = source["total"];
+	        this.by_status = source["by_status"];
+	    }
+	}
+	export class VerificationDocument {
+	    schema_version: string;
+	    tool_version: string;
+	    generated_at: string;
+	    base: string;
+	    head: string;
+	    results: domain.ClaimResult[];
+	    summary: VerificationSummary;
+	    limitations?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new VerificationDocument(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.schema_version = source["schema_version"];
+	        this.tool_version = source["tool_version"];
+	        this.generated_at = source["generated_at"];
+	        this.base = source["base"];
+	        this.head = source["head"];
+	        this.results = this.convertValues(source["results"], domain.ClaimResult);
+	        this.summary = this.convertValues(source["summary"], VerificationSummary);
+	        this.limitations = source["limitations"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class VerifyResult {
+	    Document?: VerificationDocument;
+	    Failed: boolean;
+	    Contradicted: number;
+	    Unresolved: number;
+	    FailOnUnresolved: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new VerifyResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Document = this.convertValues(source["Document"], VerificationDocument);
+	        this.Failed = source["Failed"];
+	        this.Contradicted = source["Contradicted"];
+	        this.Unresolved = source["Unresolved"];
+	        this.FailOnUnresolved = source["FailOnUnresolved"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace domain {
 	
 	export class Rule {
@@ -370,6 +472,68 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class Claim {
+	    id: string;
+	    type: string;
+	    paths?: string[];
+	    symbols?: string[];
+	    report?: string;
+	    report_revision?: string;
+	    dependencies?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Claim(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.type = source["type"];
+	        this.paths = source["paths"];
+	        this.symbols = source["symbols"];
+	        this.report = source["report"];
+	        this.report_revision = source["report_revision"];
+	        this.dependencies = source["dependencies"];
+	    }
+	}
+	export class ClaimResult {
+	    claim: Claim;
+	    status: string;
+	    message: string;
+	    evidence?: Evidence[];
+	    limitations?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ClaimResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.claim = this.convertValues(source["claim"], Claim);
+	        this.status = source["status"];
+	        this.message = source["message"];
+	        this.evidence = this.convertValues(source["evidence"], Evidence);
+	        this.limitations = source["limitations"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	
 	
@@ -540,6 +704,200 @@ export namespace ui {
 	        this.suggested_name = source["suggested_name"];
 	        this.title = source["title"];
 	    }
+	}
+	export class VerifyView {
+	    run_id: string;
+	    root: string;
+	    base: string;
+	    failed: boolean;
+	    contradicted: number;
+	    unresolved: number;
+	    document?: application.VerificationDocument;
+	
+	    static createFrom(source: any = {}) {
+	        return new VerifyView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.run_id = source["run_id"];
+	        this.root = source["root"];
+	        this.base = source["base"];
+	        this.failed = source["failed"];
+	        this.contradicted = source["contradicted"];
+	        this.unresolved = source["unresolved"];
+	        this.document = this.convertValues(source["document"], application.VerificationDocument);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class VerifyProgress {
+	    run_id: string;
+	    phase: string;
+	    total?: number;
+	    contradicted?: number;
+	    unresolved?: number;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VerifyProgress(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.run_id = source["run_id"];
+	        this.phase = source["phase"];
+	        this.total = source["total"];
+	        this.contradicted = source["contradicted"];
+	        this.unresolved = source["unresolved"];
+	        this.error = source["error"];
+	    }
+	}
+	export class VerifyEvent {
+	    run_id: string;
+	    kind: string;
+	    progress?: VerifyProgress;
+	    view?: VerifyView;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VerifyEvent(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.run_id = source["run_id"];
+	        this.kind = source["kind"];
+	        this.progress = this.convertValues(source["progress"], VerifyProgress);
+	        this.view = this.convertValues(source["view"], VerifyView);
+	        this.error = source["error"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class VerifyRequest {
+	    root: string;
+	    base: string;
+	    claims_path: string;
+	    run_id?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VerifyRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.base = source["base"];
+	        this.claims_path = source["claims_path"];
+	        this.run_id = source["run_id"];
+	    }
+	}
+
+}
+
+export namespace visualization {
+	
+	export class DependencyInfo {
+	    path: string;
+	    file: string;
+	    language: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DependencyInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.file = source["file"];
+	        this.language = source["language"];
+	    }
+	}
+	export class SymbolInfo {
+	    name: string;
+	    kind: string;
+	    file: string;
+	    language: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SymbolInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.kind = source["kind"];
+	        this.file = source["file"];
+	        this.language = source["language"];
+	    }
+	}
+	export class VisualizationResult {
+	    symbols: SymbolInfo[];
+	    dependencies: DependencyInfo[];
+	    summary: Record<string, number>;
+	
+	    static createFrom(source: any = {}) {
+	        return new VisualizationResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.symbols = this.convertValues(source["symbols"], SymbolInfo);
+	        this.dependencies = this.convertValues(source["dependencies"], DependencyInfo);
+	        this.summary = source["summary"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

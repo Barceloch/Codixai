@@ -1,0 +1,453 @@
+name: Release
+
+# Builds the precompiled artifacts of Codixai, runs the checks before
+# packaging them, and publishes a GitHub Release when a v* tag is pushed.
+#
+# The manual dispatch exists to exercise the pipeline without publishing:
+# it builds the current branch, uploads the artifacts and stops before the
+# release unless "publish" is checked and the tag exists on the remote.
+#
+# Only actions/checkout, actions/setup-go, actions/setup-node,
+# actions/upload-artifact and actions/download-artifact are used, all of them
+# maintained by GitHub. The release itself is created with the gh CLI, so no
+# third-party action receives the token.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, without the leading v (for example 0.1.0-rc.2)"
+        required: true
+        default: "0.1.0-rc.2"
+      publish:
+        description: "Create the GitHub Release (the tag must already exist)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  PNPM_VERSION: "10.11.1"
+  NODE_VERSION: "24"
+
+jobs:
+  meta:
+    name: Resolve the version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - name: Resolve the version and whether the release is published
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PUBLISH: ${{ inputs.publish }}
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+            publish=true
+          else
+            version="${INPUT_VERSION}"
+            publish="${INPUT_PUBLISH}"
+          fi
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::the version '$version' is not a semantic version"; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "Building version $version (tag v$version, publish=$publish)"
+
+  verify:
+    name: Tests and vet
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Check the formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::these files are not formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: Vet
+        run: go vet ./...
+      - name: Test with the race detector
+        run: go test ./... -race
+
+  cli-linux:
+    name: CLI (linux/amd64)
+    needs: [meta, verify]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build the CLI
+        run: |
+          mkdir -p build
+          CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -X main.version=${{ needs.meta.outputs.version }}" \
+            -o build/codixai ./cmd/codixai
+          file build/codixai
+      - name: Smoke test the CLI
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          cli="$PWD/build/codixai"
+
+          "$cli" --help > /dev/null
+          "$cli" version | tee /tmp/version.txt
+          grep -F "$VERSION" /tmp/version.txt
+
+          # The CLI only variant has no window: the ui command is a usage
+          # error with exit code 2.
+          set +e
+          "$cli" ui > /tmp/ui.txt 2>&1
+          code=$?
+          set -e
+          cat /tmp/ui.txt
+          [ "$code" -eq 2 ] || { echo "::error::codixai ui exited with $code, want 2"; exit 1; }
+
+          # audit over a throwaway repository, in both formats.
+          work=$(mktemp -d)
+          git init -q "$work"
+          git -C "$work" config user.email "release@example.com"
+          git -C "$work" config user.name "Release"
+          printf 'package main\n\nfunc main() {}\n' > "$work/main.go"
+          git -C "$work" add .
+          git -C "$work" commit -qm "init"
+          printf 'package main\n\nfunc main() { println("changed") }\n' > "$work/main.go"
+
+          "$cli" --root "$work" audit --diff --worktree --format json > /tmp/audit.json
+          jq -e '.schema_version' /tmp/audit.json
+          "$cli" --root "$work" report --base HEAD --format sarif > /tmp/audit.sarif
+          jq -e '.version' /tmp/audit.sarif
+          "$cli" --root "$work" audit --diff --worktree > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-linux-amd64-cli
+          path: build/codixai
+          if-no-files-found: error
+
+  ui-linux:
+    name: UI (linux/amd64)
+    needs: [meta, verify]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install the native dependencies of the window
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev libwebkit2gtk-4.1-dev xvfb xauth
+      - name: Install pnpm
+        run: npm install --global pnpm@${{ env.PNPM_VERSION }}
+      - name: Build the frontend
+        run: |
+          pnpm --dir frontend install --frozen-lockfile
+          pnpm --dir frontend build
+      - name: Build the UI
+        run: |
+          mkdir -p build
+          go build -tags "ui production webkit2_41" -trimpath \
+            -ldflags "-s -w -X main.version=${{ needs.meta.outputs.version }}" \
+            -o build/codixai ./cmd/codixai
+      - name: Smoke test the window under Xvfb
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          cli="$PWD/build/codixai"
+          "$cli" version | tee /tmp/version.txt
+          grep -F "$VERSION" /tmp/version.txt
+
+          work=$(mktemp -d)
+          git init -q "$work"
+          git -C "$work" config user.email "release@example.com"
+          git -C "$work" config user.name "Release"
+          printf 'package main\n\nfunc main() {}\n' > "$work/main.go"
+          git -C "$work" add .
+          git -C "$work" commit -qm "init"
+
+          # The window opens, reaches its first frame and quits by itself.
+          # A non-zero exit means the binary cannot start on the platform
+          # that this package targets, so the release must not publish it.
+          xvfb-run -a -s "-screen 0 1280x800x24" \
+            env CODIXAI_UI_AUTOQUIT=4s WEBKIT_DISABLE_COMPOSITING_MODE=1 LIBGL_ALWAYS_SOFTWARE=1 \
+            "$cli" ui --root "$work"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-linux-amd64-ui
+          path: build/codixai
+          if-no-files-found: error
+
+  cli-windows:
+    name: CLI (windows/amd64)
+    needs: [meta, verify]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build the CLI
+        shell: bash
+        run: |
+          mkdir -p build
+          CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -X main.version=${{ needs.meta.outputs.version }}" \
+            -o build/codixai.exe ./cmd/codixai
+      - name: Smoke test the CLI
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $cli = "$PWD\build\codixai.exe"
+          & $cli --help | Out-Null
+          $version = & $cli version
+          $version
+          if ($LASTEXITCODE -ne 0) { throw "codixai version exited with $LASTEXITCODE" }
+          if (-not ($version -match [regex]::Escape($env:VERSION))) { throw "the version does not report $env:VERSION" }
+          & $cli ui | Out-Null
+          if ($LASTEXITCODE -ne 2) { throw "codixai ui exited with $LASTEXITCODE, want 2" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-windows-amd64-cli
+          path: build/codixai.exe
+          if-no-files-found: error
+
+  ui-windows:
+    name: UI (windows/amd64)
+    needs: [meta, verify]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install pnpm
+        shell: pwsh
+        run: npm install --global pnpm@${{ env.PNPM_VERSION }}
+      - name: Build the frontend
+        shell: pwsh
+        run: |
+          pnpm --dir frontend install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw "pnpm install failed" }
+          pnpm --dir frontend build
+          if ($LASTEXITCODE -ne 0) { throw "pnpm build failed" }
+      - name: Build the UI
+        shell: pwsh
+        run: |
+          # Wails v2 on Windows needs cgo and a C toolchain for the webview
+          # bindings; MSYS2 ships the mingw-w64 gcc on the Windows runner.
+          $env:PATH = "C:\msys64\mingw64\bin;$env:PATH"
+          $env:CGO_ENABLED = "1"
+          gcc --version
+          if ($LASTEXITCODE -ne 0) { throw "gcc is not available: the UI cannot be compiled for Windows" }
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          go build -tags "ui production" -trimpath `
+            -ldflags "-s -w -X main.version=${{ needs.meta.outputs.version }}" `
+            -o build/codixai.exe ./cmd/codixai
+          if ($LASTEXITCODE -ne 0) { throw "go build failed" }
+      - name: Check the binary starts
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $cli = "$PWD\build\codixai.exe"
+          if (-not (Test-Path $cli)) { throw "the UI binary was not produced" }
+          # The binary is a console program in this build, so the version
+          # command proves that the executable starts and resolves its
+          # embedded assets. The window itself is not started here: the
+          # runner has no interactive desktop, so claiming a window test
+          # would be a lie.
+          $version = & $cli version
+          $version
+          if ($LASTEXITCODE -ne 0) { throw "codixai version exited with $LASTEXITCODE" }
+          if (-not ($version -match [regex]::Escape($env:VERSION))) { throw "the version does not report $env:VERSION" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-windows-amd64-ui
+          path: build/codixai.exe
+          if-no-files-found: error
+
+  package:
+    name: Package
+    needs: [meta, cli-linux, ui-linux, cli-windows, ui-windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the packaging tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zip unzip
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: binaries
+      - name: Show the downloaded binaries
+        run: find binaries -type f -exec ls -l {} \;
+      - name: Package the four artifacts
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          chmod +x binaries/binary-linux-amd64-cli/codixai binaries/binary-linux-amd64-ui/codixai
+          out=dist/release
+          scripts/release/package.sh --version "$VERSION" --os linux --arch amd64 \
+            --variant cli --binary binaries/binary-linux-amd64-cli/codixai --outdir "$out"
+          scripts/release/package.sh --version "$VERSION" --os linux --arch amd64 \
+            --variant ui --binary binaries/binary-linux-amd64-ui/codixai --outdir "$out"
+          scripts/release/package.sh --version "$VERSION" --os windows --arch amd64 \
+            --variant cli --binary binaries/binary-windows-amd64-cli/codixai.exe --outdir "$out"
+          scripts/release/package.sh --version "$VERSION" --os windows --arch amd64 \
+            --variant ui --binary binaries/binary-windows-amd64-ui/codixai.exe --outdir "$out"
+      - name: Write and verify the checksums
+        run: |
+          set -euo pipefail
+          cd dist/release
+          sha256sum codixai_* > SHA256SUMS
+          sha256sum --check --strict SHA256SUMS
+          cat SHA256SUMS
+          ls -l
+      - name: Check the contents of every package
+        run: |
+          set -euo pipefail
+          cd dist/release
+          for archive in *.tar.gz; do
+            echo "== $archive"
+            tar -tzf "$archive"
+            tar -tzf "$archive" | grep -q '/codixai$'
+            tar -tzf "$archive" | grep -q '/README.md$'
+            tar -tzf "$archive" | grep -q '/README.es.md$'
+            tar -tzf "$archive" | grep -q '/VERSION$'
+            tar -tzf "$archive" | grep -q '/LICENSE$'
+          done
+          for archive in *.zip; do
+            echo "== $archive"
+            unzip -l "$archive"
+            unzip -l "$archive" | grep -q 'codixai.exe'
+            unzip -l "$archive" | grep -q 'README.md'
+            unzip -l "$archive" | grep -q 'README.es.md'
+            unzip -l "$archive" | grep -q 'VERSION'
+            unzip -l "$archive" | grep -q 'LICENSE'
+          done
+          # No source, no VCS data, no local file may travel in a package.
+          forbidden='(^|/)\.git(/|$)|\.env$|\.log$'
+          if tar -tzf codixai_*_linux_amd64_*.tar.gz | grep -Eq "$forbidden"; then
+            echo "::error::a tar.gz package carries a forbidden file"
+            exit 1
+          fi
+          for archive in *.zip; do
+            if unzip -Z1 "$archive" | grep -Eq "$forbidden"; then
+              echo "::error::the package $archive carries a forbidden file"
+              exit 1
+            fi
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codixai-release
+          path: dist/release/*
+          if-no-files-found: error
+
+  release:
+    name: Publish the release
+    needs: [meta, package]
+    if: needs.meta.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: codixai-release
+          path: dist/release
+      - name: Write the release notes
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          cat > notes.md <<EOF
+          Precompiled binaries of Codixai ${VERSION} for Linux and Windows on x86_64.
+          No Go toolchain is needed to run them.
+
+          | Package | Platform | Contents |
+          | ------- | -------- | -------- |
+          | \`codixai_${VERSION}_linux_amd64_cli.tar.gz\` | Linux x86_64 | Static CLI. No graphical libraries. |
+          | \`codixai_${VERSION}_linux_amd64_ui.tar.gz\` | Linux x86_64 | CLI and desktop window. Needs GTK 3, WebKitGTK 4.1 and glibc 2.39+. |
+          | \`codixai_${VERSION}_windows_amd64_cli.zip\` | Windows x86_64 | CLI. |
+          | \`codixai_${VERSION}_windows_amd64_ui.zip\` | Windows x86_64 | CLI and desktop window. Needs the WebView2 runtime. |
+
+          Every package holds the binary, a \`README.md\`, a \`README.es.md\`, a
+          \`VERSION\` file and the licence. \`SHA256SUMS\` covers all four archives.
+
+          ## Requirements
+
+          - **Linux UI**: \`sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0\` on
+            Ubuntu 24.04 or Debian 13, plus glibc 2.39 or later. The window links
+            against the system libraries: a binary built on a rolling release
+            does not start on Debian or Ubuntu.
+          - **Windows UI**: the Microsoft Edge WebView2 runtime (included in
+            Windows 11).
+          - **CLI**: nothing beyond the operating system.
+
+          ## Verification status
+
+          - Linux CLI and Linux UI: executed by this workflow on the runner.
+          - Windows CLI: executed by this workflow on a Windows runner.
+          - Windows UI: compiled by this workflow; the graphical window was not
+            executed because the runner has no interactive desktop.
+
+          Documentation: \`README.md\` (English) and
+          \`docs/guides/codixai-usage.es.md\` (Spanish) in the repository.
+          EOF
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "::error::the release $TAG already exists: publish a new version instead of overwriting it"
+            exit 1
+          fi
+          gh release create "$TAG" \
+            --verify-tag \
+            --title "Codixai $TAG" \
+            --notes-file notes.md \
+            dist/release/codixai_* \
+            dist/release/SHA256SUMS
+      - name: Summary
+        run: |
+          {
+            echo "### Codixai ${{ needs.meta.outputs.tag }}"
+            echo
+            echo "Artifacts:"
+            echo '```'
+            cat dist/release/SHA256SUMS
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
