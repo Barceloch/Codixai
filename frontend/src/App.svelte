@@ -124,28 +124,14 @@
   <title>{i18n.t('app.title')}</title>
 </svelte:head>
 
-<div class="flex min-h-screen flex-col bg-background text-text-primary">
+<div class="app-shell">
   <Header />
 
-  <main class="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-6">
+  <main class="app-main">
     <!-- Tabs -->
-    <div class="tabs-glass" role="tablist" aria-label="Main tabs">
-      <button
-        role="tab"
-        class:tab-active={activeTab === 'audit'}
-        aria-selected={activeTab === 'audit'}
-        onclick={() => { activeTab = 'audit'; view = null; error = ''; notice = ''; }}
-      >
-        {i18n.t('tab.audit')}
-      </button>
-      <button
-        role="tab"
-        class:tab-active={activeTab === 'verify'}
-        aria-selected={activeTab === 'verify'}
-        onclick={() => { activeTab = 'verify'; view = null; error = ''; notice = ''; }}
-      >
-        {i18n.t('tab.verify')}
-      </button>
+    <div class="segmented self-start" role="tablist" aria-label={i18n.t('app.title')}>
+      <button type="button" role="tab" class="segmented-item" class:is-active={activeTab === 'audit'} aria-selected={activeTab === 'audit'} onclick={() => { activeTab = 'audit'; view = null; error = ''; notice = ''; }}>{i18n.t('tab.audit')}</button>
+      <button type="button" role="tab" class="segmented-item" class:is-active={activeTab === 'verify'} aria-selected={activeTab === 'verify'} onclick={() => { activeTab = 'verify'; view = null; error = ''; notice = ''; }}>{i18n.t('tab.verify')}</button>
     </div>
 
     {#if activeTab === 'audit'}
@@ -163,43 +149,45 @@
       />
 
       {#if notice}
-        <div class="alert-success-glass animate-fade-in" role="status">
+        <div class="callout callout-success fade-in" role="status">
           <span class="break-anywhere">{notice}</span>
         </div>
       {/if}
 
       {#if view}
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] animate-fade-in">
+        <div class="flex flex-col gap-6">
           <SummaryPanel {view} />
 
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-lg font-semibold text-primary-color">{i18n.t('export.title')}</h2>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="eyebrow">{i18n.t('export.title')}</h2>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="btn-outline-glass btn-sm" onclick={() => exportReport('json')}>
+              <button type="button" class="btn btn-ghost btn-sm" onclick={() => exportReport('json')}>
                 {i18n.t('export.json')}
               </button>
-              <button type="button" class="btn-outline-glass btn-sm" onclick={() => exportReport('sarif')}>
+              <button type="button" class="btn btn-ghost btn-sm" onclick={() => exportReport('sarif')}>
                 {i18n.t('export.sarif')}
               </button>
             </div>
           </div>
 
-          <FindingsPanel
-            bind:filters
-            findings={visible}
-            allFindings={findings}
-            {selectedKey}
-            onselect={selectFinding}
-          />
-          <FindingDetail finding={selected} changes={view.changes} />
+          <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1.95fr)_minmax(0,1fr)]">
+            <FindingsPanel
+              bind:filters
+              findings={visible}
+              allFindings={findings}
+              {selectedKey}
+              onselect={selectFinding}
+            />
+            <FindingDetail finding={selected} changes={view.changes} />
+          </div>
         </div>
       {:else if !running}
-        <div class="empty-state card-glass animate-fade-in">
-          <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="panel empty fade-in">
+          <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"></path>
           </svg>
-          <p class="empty-state-title">{i18n.t('audit.idle')}</p>
-          <p class="empty-state-description">{i18n.t('audit.idleHint')}</p>
+          <p class="empty-title">{i18n.t('audit.idle')}</p>
+          <p class="empty-text">{i18n.t('audit.idleHint')}</p>
         </div>
       {/if}
     {/if}
@@ -209,9 +197,7 @@
     {/if}
   </main>
 
-  <footer class="border-t border-border-dark px-4 py-3">
-    <p class="mx-auto max-w-7xl text-xs text-text-secondary text-center">
-      {i18n.t('footer.note')}
-    </p>
+  <footer class="app-footer">
+    {i18n.t('footer.note')}
   </footer>
 </div>

@@ -34,6 +34,9 @@ odd/task
 SHA256SUMS*
 *.tar.gz
 *.zip
-frontend/public/
 logo*.png
+!frontend/public/images/logoH.png
 dist/local-test/
+
+# Local ODD tracking
+odd/

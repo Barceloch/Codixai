@@ -85,16 +85,25 @@
     }
   }
 
+  function progressPercent(): number {
+    switch (progress?.phase) {
+      case 'validating': return 25
+      case 'collecting': return 65
+      case 'done': return 100
+      default: return 0
+    }
+  }
+
   function stateLabel(status: string): string {
     return i18n.t(`verify.state${status.charAt(0).toUpperCase()}${status.slice(1)}`)
   }
 
-  function badgeClass(status: string): string {
+  function chipClass(status: string): string {
     switch (status) {
-      case 'verified': return 'badge-success-glass'
-      case 'contradicted': return 'badge-error-glass'
-      case 'unresolved': return 'badge-warning-glass'
-      default: return 'badge-glass'
+      case 'verified': return 'chip chip-success'
+      case 'contradicted': return 'chip chip-error'
+      case 'unresolved': return 'chip chip-warning'
+      default: return 'chip'
     }
   }
 
@@ -156,128 +165,150 @@
   })
 </script>
 
-<section class="section-glass glass-surface animate-fade-in" aria-labelledby="verify-title">
-  <div class="card-glass card-glass-elevated">
-    <div class="card-body gap-6">
-      <div>
-        <h2 id="verify-title" class="card-title text-lg text-primary-color">{i18n.t('verify.title')}</h2>
-        <p class="text-sm text-text-secondary mt-1">{i18n.t('verify.idleHint')}</p>
-      </div>
-
-      <form class="grid gap-4 md:grid-cols-2" onsubmit={(e) => { e.preventDefault(); run() }} autocomplete="off">
-        <div class="grid gap-2 md:col-span-2">
-          <label class="label text-xs font-medium text-text-secondary" for="verify-repository">{i18n.t('verify.repository')}</label>
-          <div class="repository-input">
-            <input id="verify-repository" class="input input-bordered w-full bg-surface/50" type="text" bind:value={root} disabled={running} placeholder={i18n.t('verify.repositoryPlaceholder')} />
-            <button type="button" class="btn-glass btn-sm" onclick={chooseRoot} disabled={running || !bridgeAvailable}>{i18n.t('verify.chooseRepository')}</button>
-          </div>
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label class="label text-xs font-medium text-text-secondary" for="verify-base">{i18n.t('verify.base')}</label>
-          <input id="verify-base" class="input input-bordered w-full bg-surface/50" type="text" bind:value={base} disabled={running} placeholder={i18n.t('verify.basePlaceholder')} />
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label class="label text-xs font-medium text-text-secondary" for="verify-claims">{i18n.t('verify.claimsFile')}</label>
-          <div class="repository-input">
-            <input id="verify-claims" class="input input-bordered w-full bg-surface/50" type="text" bind:value={claimsPath} disabled={running} placeholder={i18n.t('verify.claimsPlaceholder')} />
-            <button type="button" class="btn-glass btn-sm" onclick={chooseClaims} disabled={running || !bridgeAvailable}>{i18n.t('verify.chooseClaims')}</button>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3 md:col-span-2 mt-2">
-          <button type="submit" class="btn-primary-glass flex-1" disabled={!canRun || running}>
-            {running ? i18n.t('verify.running') : i18n.t('verify.run')}
-          </button>
-          {#if running}<button type="button" class="btn-glass btn-sm" onclick={cancel}>{i18n.t('verify.cancel')}</button>{/if}
-        </div>
-      </form>
-    </div>
+<section class="panel panel-pad fade-in" aria-labelledby="verify-title">
+  <div class="mb-5">
+    <h2 id="verify-title" class="panel-title">{i18n.t('verify.title')}</h2>
+    <p class="panel-sub mt-1">{i18n.t('verify.idleHint')}</p>
   </div>
+
+  <form class="grid gap-5 md:grid-cols-2" onsubmit={(e) => { e.preventDefault(); run() }} autocomplete="off">
+    <div class="field md:col-span-2">
+      <label class="field-label" for="verify-repository">{i18n.t('verify.repository')}</label>
+      <div class="field-row">
+        <input id="verify-repository" class="input input-mono" type="text" spellcheck="false" bind:value={root} disabled={running} placeholder={i18n.t('verify.repositoryPlaceholder')} />
+        <button type="button" class="btn btn-ghost btn-sm" onclick={chooseRoot} disabled={running || !bridgeAvailable}>{i18n.t('verify.chooseRepository')}</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="verify-base">{i18n.t('verify.base')}</label>
+      <input id="verify-base" class="input input-mono" type="text" spellcheck="false" bind:value={base} disabled={running} placeholder={i18n.t('verify.basePlaceholder')} />
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="verify-claims">{i18n.t('verify.claimsFile')}</label>
+      <div class="field-row">
+        <input id="verify-claims" class="input input-mono" type="text" spellcheck="false" bind:value={claimsPath} disabled={running} placeholder={i18n.t('verify.claimsPlaceholder')} />
+        <button type="button" class="btn btn-ghost btn-sm" onclick={chooseClaims} disabled={running || !bridgeAvailable}>{i18n.t('verify.chooseClaims')}</button>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3 md:col-span-2 mt-2">
+      <button type="submit" class="btn btn-primary flex-1 sm:flex-none sm:min-w-[180px]" disabled={!canRun || running}>
+        {running ? i18n.t('verify.running') : i18n.t('verify.run')}
+      </button>
+      {#if running}<button type="button" class="btn btn-ghost btn-sm" onclick={cancel}>{i18n.t('verify.cancel')}</button>{/if}
+    </div>
+  </form>
+
+  {#if running}
+    <div class="mt-5 flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="spinner"></span>
+        <span class="text-sm font-medium text-text-primary">{progressText()}</span>
+      </div>
+      <div class="meter">
+        <div class="meter-fill" style="width: {progressPercent()}%"></div>
+      </div>
+    </div>
+  {/if}
+
+  {#if error}
+    <div class="callout callout-error mt-5" role="alert">
+      <svg class="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      </svg>
+      <div class="min-w-0 flex-1">
+        <p class="font-medium">{i18n.t('verify.error.title')}</p>
+        <p class="mt-1 text-sm">{error}</p>
+      </div>
+    </div>
+  {/if}
 </section>
 
-{#if running}
-  <div class="mt-4 animate-fade-in">
-    <div class="flex items-center gap-3 mb-2">
-      <div class="loading-spinner w-5 h-5"></div>
-      <span class="text-sm font-medium text-primary-color">{progressText()}</span>
-    </div>
-    <progress class="progress progress-glass w-full" max="100"></progress>
-  </div>
-{/if}
-
-{#if error}
-  <div class="alert-error-glass mt-4 animate-slide-up" role="alert">
-    <p class="font-medium">{i18n.t('verify.error.title')}</p>
-    <p class="text-sm">{error}</p>
-  </div>
-{/if}
-
 {#if view}
-  <section class="section-glass card-glass glass-surface animate-fade-in mt-6" aria-labelledby="verify-results-title">
-    <div class="card-body gap-4">
-      <div class="flex items-center justify-between">
-        <h2 id="verify-results-title" class="card-title text-lg text-primary-color">{i18n.t('verify.results')}</h2>
-        <button type="button" class="btn-glass btn-sm" onclick={exportReport}>{i18n.t('export.json')}</button>
-      </div>
-      
-      <!-- Filters -->
-      <div class="grid gap-3 sm:grid-cols-4">
-        <label class="flex flex-col gap-1">
-          <span class="text-xs font-medium text-text-secondary">{i18n.t('verify.state')}</span>
-          <select class="select select-bordered select-sm bg-surface/50" bind:value={filters.state}>
+  <section class="panel panel-pad fade-in" aria-labelledby="verify-results-title">
+    <div class="panel-head">
+      <h2 id="verify-results-title" class="panel-title">{i18n.t('verify.results')}</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick={exportReport}>{i18n.t('export.json')}</button>
+    </div>
+
+    <!-- Filters -->
+    <div class="grid gap-3 sm:grid-cols-4">
+      <div class="field">
+        <label class="field-label" for="verify-state-filter">{i18n.t('verify.state')}</label>
+        <div class="select-wrap">
+          <select id="verify-state-filter" class="select select-sm" bind:value={filters.state}>
             <option value="">{i18n.t('filters.all')}</option>
             {#each states as state (state)}
               <option value={state}>{i18n.t(`verify.state${state.charAt(0).toUpperCase()}${state.slice(1)}`)}</option>
             {/each}
           </select>
-        </label>
-        <label class="flex flex-col gap-1 sm:col-span-2">
-          <span class="text-xs font-medium text-text-secondary">{i18n.t('filters.path')}</span>
-          <input class="input input-bordered input-sm bg-surface/50" type="text" bind:value={filters.path} placeholder={i18n.t('filters.pathPlaceholder')} />
-        </label>
-        <div class="flex items-end">
-          <button type="button" class="btn-glass btn-sm w-full" onclick={clearFilters}>{i18n.t('filters.clear')}</button>
+          <svg class="select-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
         </div>
       </div>
-
-      {#if rows.length === 0}
-        <div class="empty-state">
-          <p class="empty-state-title">{i18n.t('verify.resultsEmpty')}</p>
-        </div>
-      {:else}
-        <div class="overflow-x-auto">
-          <table class="table-glass">
-            <thead>
-              <tr>
-                <th>{i18n.t('verify.claimId')}</th>
-                <th>{i18n.t('verify.state')}</th>
-                <th>{i18n.t('verify.claim')}</th>
-                <th>{i18n.t('verify.paths')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each rows as row (row.key)}
-                <tr class="cursor-pointer hover:bg-primary/5 {selectedKey === row.key ? 'selected' : ''}" onclick={() => selectRow(row)}>
-                  <td class="font-mono text-xs">{row.result.claim.id}</td>
-                  <td><span class="badge badge-sm {badgeClass(row.result.status)}">{stateLabel(row.result.status)}</span></td>
-                  <td class="text-xs">{row.result.claim.type}</td>
-                  <td class="break-anywhere font-mono text-xs">{row.result.claim.paths?.join(', ') ?? '—'}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
-
-      {#if selected}
-        <div class="border-t border-border-dark pt-4 prose prose-sm max-w-none text-text-secondary">
-          <h3 class="text-primary-color font-medium">{i18n.t('verify.detail')}</h3>
-          <p><strong>{i18n.t('verify.claim')}:</strong> {selected.result.claim.type}</p>
-          <p><strong>{i18n.t('verify.message')}:</strong> {selected.result.message}</p>
-        </div>
-      {/if}
+      <div class="field sm:col-span-2">
+        <label class="field-label" for="verify-path-filter">{i18n.t('filters.path')}</label>
+        <input id="verify-path-filter" class="input input-sm" type="text" bind:value={filters.path} placeholder={i18n.t('filters.pathPlaceholder')} />
+      </div>
+      <div class="flex items-end">
+        <button type="button" class="btn btn-quiet btn-sm w-full" onclick={clearFilters}>{i18n.t('filters.clear')}</button>
+      </div>
     </div>
+
+    {#if rows.length === 0}
+      <div class="empty mt-4">
+        <p class="empty-title">{i18n.t('verify.resultsEmpty')}</p>
+      </div>
+    {:else}
+      <div class="scroll-x mt-4">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>{i18n.t('verify.claimId')}</th>
+              <th>{i18n.t('verify.state')}</th>
+              <th>{i18n.t('verify.claim')}</th>
+              <th>{i18n.t('verify.paths')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each rows as row (row.key)}
+              <tr
+                class:is-selected={selectedKey === row.key}
+                tabindex="0"
+                onclick={() => selectRow(row)}
+                onkeydown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    selectRow(row)
+                  }
+                }}
+              >
+                <td class="cell-strong">{row.result.claim.id}</td>
+                <td><span class={chipClass(row.result.status)}>{stateLabel(row.result.status)}</span></td>
+                <td class="cell-muted">{row.result.claim.type}</td>
+                <td class="cell-mono break-anywhere">{row.result.claim.paths?.join(', ') ?? '—'}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+
+    {#if selected}
+      <div class="mt-5 flex flex-col gap-4 border-t border-border pt-4">
+        <h3 class="eyebrow">{i18n.t('verify.detail')}</h3>
+        <div>
+          <p class="eyebrow">{i18n.t('verify.claim')}</p>
+          <p class="mt-1 text-sm text-text-primary">{selected.result.claim.type}</p>
+        </div>
+        <div>
+          <p class="eyebrow">{i18n.t('verify.message')}</p>
+          <p class="mt-1 break-anywhere text-sm text-text-primary">{selected.result.message}</p>
+        </div>
+      </div>
+    {/if}
   </section>
 {/if}
