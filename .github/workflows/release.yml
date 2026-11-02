@@ -230,14 +230,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "codixai version exited with $LASTEXITCODE" }
           if (-not ($version -match [regex]::Escape($env:VERSION))) { throw "the version does not report $env:VERSION" }
           # The CLI only variant has no window: the ui command is a usage
-          # error with exit code 2. Its message goes to the error stream, so
-          # both streams are merged before the pipeline: a native command
-          # whose stderr is piped under $ErrorActionPreference = "Stop" is a
-          # terminating error, and the exit code is never read.
-          $ui = & $cli ui 2>&1 | Out-String
-          $code = $LASTEXITCODE
-          $ui.Trim()
-          if ($code -ne 2) { throw "codixai ui exited with $code, want 2" }
+          # error with exit code 2 and a message on the error stream. The
+          # process is started on its own instead of piped, so the exit code
+          # is read from the process and never from $LASTEXITCODE: a native
+          # command that writes to the error stream is a terminating error
+          # under $ErrorActionPreference = "Stop", whether the stream is
+          # merged into the pipeline or not, and then the code is never read.
+          $ui = Start-Process -FilePath $cli -ArgumentList "ui" -NoNewWindow -Wait -PassThru
+          if ($ui.ExitCode -ne 2) { throw "codixai ui exited with $($ui.ExitCode), want 2" }
       - uses: actions/upload-artifact@v4
         with:
           name: binary-windows-amd64-cli
