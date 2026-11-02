@@ -430,4 +430,10 @@ else
 fi
 
 digest=$(sha256sum "$archive" | awk '{print $1}')
+
+# The staging directory is a build detail: the output directory holds the
+# archives only, so that a checksum over <outdir>/codixai_* never matches a
+# directory and a published release never carries loose files.
+rm -rf "$staging"
+
 printf '%s  %s\n' "$digest" "$(basename "$archive")"
