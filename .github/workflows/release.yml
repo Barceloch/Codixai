@@ -435,10 +435,17 @@ jobs:
             echo "::error::the release $TAG already exists: publish a new version instead of overwriting it"
             exit 1
           fi
+          # A version with a pre-release suffix (0.1.0-rc.3) must never be
+          # published as the latest stable release of the repository.
+          prerelease=""
+          case "$TAG" in
+            *-*) prerelease="--prerelease" ;;
+          esac
           gh release create "$TAG" \
             --verify-tag \
             --title "Codixai $TAG" \
             --notes-file notes.md \
+            $prerelease \
             dist/release/codixai_* \
             dist/release/SHA256SUMS
       - name: Summary
