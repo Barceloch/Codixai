@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 once a release is published.
 
-**The `0.1.0-rc.1` and `0.1.0-rc.2` candidates are published as pre-releases.**
+**The `0.1.0-rc.N` candidates are published as pre-releases.**
 The `[Unreleased]` section below holds what the default branch carries and the
 published candidates do not, and the versions in it describe the state of the
 default branch.
@@ -14,6 +14,8 @@ default branch.
 ## [Unreleased]
 
 ### Changed — The desktop interface is rebuilt on an explicit design system
+
+This is the content of the `v0.1.0-rc.3` pre-release.
 
 `daisyui` is a development dependency of the frontend, but it was never
 registered as a plugin of Tailwind, so the classes the components borrowed

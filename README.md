@@ -66,8 +66,8 @@ What does **not** exist today:
 - no semantic resolution: every rule is at most `syntactic`;
 - no verification of the behavior of a change: the `api_unchanged` and the
   `behavior_preserved` claims are always `unresolved`;
-- no stable release. The `0.1.0-rc.1` and `0.1.0-rc.2` candidates are
-  published as pre-releases, with the four packages of the delivery.
+- no stable release. The `0.1.0-rc.N` candidates are published as
+  pre-releases, with the four packages of the delivery.
 
 ### License
 
@@ -675,10 +675,10 @@ the roadmap:
 - **No cross-platform verification.** Only Linux was exercised in the
   development environment. macOS and Windows builds are defined in CI but
   their results have not been observed yet.
-- **No stable release.** The `0.1.0-rc.1` and `0.1.0-rc.2` candidates are
-  published as pre-releases, with packaged binaries for Linux and Windows, but
-  there is no `0.1.0` tag, no signed binary and no measured performance or
-  precision figure.
+- **No stable release.** The `0.1.0-rc.N` candidates are published as
+  pre-releases, with packaged binaries for Linux and Windows, but there is no
+  `0.1.0` tag, no signed binary and no measured performance or precision
+  figure.
 
 The absence of findings does not prove that a change is correct, safe or
 complete.
