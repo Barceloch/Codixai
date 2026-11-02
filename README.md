@@ -16,6 +16,12 @@ its epistemic status and its known limitations.
 **Codixai never executes the code of the analyzed repository, never invokes a
 package manager and never accesses the network.**
 
+<p align="center">
+  <img src="assets/screenshots/audit-dark.png" alt="The Codixai desktop window: the repository and origin form, the summary of the run and the findings list" width="720" />
+</p>
+
+<p align="center"><em>The audit screen of the desktop window: the origin selector, the summary of the run and the findings with their evidence.</em></p>
+
 ## Status
 
 **Experimental. This repository is at the Phase 0 / Phase 1 milestone, plus

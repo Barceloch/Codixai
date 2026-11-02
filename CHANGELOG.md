@@ -12,6 +12,36 @@ branch.
 
 ## [Unreleased]
 
+### Changed — The desktop interface is rebuilt on an explicit design system
+
+`daisyui` is a development dependency of the frontend, but it was never
+registered as a plugin of Tailwind, so the classes the components borrowed
+from it (`card-body`, `card-title`, `badge`, `input-bordered`,
+`select-bordered`, `join`, `label`, `prose`, `bg-base-100`,
+`border-base-300`) compiled to nothing: the panels had no padding, the chips
+had no shape, and the header drew a rounded glass border across the whole
+viewport.
+
+- **`frontend/src/app.css`**: a token layer for the dark and the light theme
+  plus one semantic vocabulary (`.panel`, `.btn`, `.field`, `.input`,
+  `.select`, `.data-table`, `.chip`, `.segmented`, `.menu`, `.callout`,
+  `.meter`, `.empty`). No daisyUI class name survives in `frontend/src`.
+- **A real light theme**: `:root[data-theme='light']` overrides the theme
+  custom properties, so switching the theme repaints every surface instead of
+  changing an attribute that nothing read.
+- **`frontend/src/lib/components/SelectMenu.svelte`** (new): one accessible
+  menu behind the language and the theme selectors. They no longer show the
+  words "Language" and "Theme", they close when an option is chosen, they
+  return the focus to the trigger, and they answer to the arrows, `Home`,
+  `End`, `Escape` and `Tab`. `Dropdown.svelte` was unused and is gone.
+- **The remote `Azeret Mono` font is dropped**: a local-first window must not
+  fetch a font over the network, and the fetch delayed the first paint. The
+  monospace stack falls back to the system family.
+- **The header logo** is downscaled from 2172x724 (1 MB) to 800x267 (152 KB)
+  and is no longer ignored by `.gitignore`, so a clean clone renders it.
+- The audit and the verification pipelines, the Go core, the rule catalog and
+  the CLI are untouched.
+
 ### Added — Release v0.1.0-rc.2 (precompiled binaries)
 
 - **Precompiled binaries for Linux and Windows on x86_64.** The release
