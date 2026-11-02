@@ -6,9 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 once a release is published.
 
-**The project has not published a release yet.** The `0.1.0` entry below is
-still unreleased and the versions in it describe the state of the default
-branch.
+**The `0.1.0-rc.1` and `0.1.0-rc.2` candidates are published as pre-releases.**
+The `[Unreleased]` section below holds what the default branch carries and the
+published candidates do not, and the versions in it describe the state of the
+default branch.
 
 ## [Unreleased]
 
