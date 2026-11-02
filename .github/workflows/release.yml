@@ -364,10 +364,12 @@ jobs:
           done
           # No source, no VCS data, no local file may travel in a package.
           forbidden='(^|/)\.git(/|$)|\.env$|\.log$'
-          if tar -tzf codixai_*_linux_amd64_*.tar.gz | grep -Eq "$forbidden"; then
-            echo "::error::a tar.gz package carries a forbidden file"
-            exit 1
-          fi
+          for archive in *.tar.gz; do
+            if tar -tzf "$archive" | grep -Eq "$forbidden"; then
+              echo "::error::the package $archive carries a forbidden file"
+              exit 1
+            fi
+          done
           for archive in *.zip; do
             if unzip -Z1 "$archive" | grep -Eq "$forbidden"; then
               echo "::error::the package $archive carries a forbidden file"
