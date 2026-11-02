@@ -7,6 +7,14 @@ Each case follows the same structure as `testdata/rules/`:
 - `<name>.expected.json` — expected rule IDs and count
 - `repo/` (optional) — repository context (manifests, lockfiles)
 
+When several cases of the same rule and language share the manifests, those
+manifests live once in `<RULE-ID>/<language>/repo/` and every case directory
+carries a `repo` symlink to it (`repo -> ../repo`). The link is part of the
+fixture: without it the analysis root is the case directory, no manifest is
+found, and the `declared_*` negative cases report an undeclared import. A
+checkout that cannot create symlinks — Git on Windows without the developer
+mode — materializes them as text files and those cases fail.
+
 ## Provenance
 
 These diffs are **synthetic but representative**, created by the maintainer to cover patterns observed in AI-assisted development:
