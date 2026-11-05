@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/barceloch/codixai/internal/domain"
+	"github.com/barceloch/codixai/internal/source"
 )
 
 // DiffAnalyzer is the port implemented by the analysis engine.
@@ -24,4 +25,12 @@ type ChangeSource interface {
 	Changes(ctx context.Context, origin domain.ChangeOrigin, base string) (*domain.ChangeSet, error)
 	// Head returns the current HEAD revision of the repository.
 	Head(ctx context.Context) (string, error)
+}
+
+// DirectoryAnalyzer is the port implemented by the directory analysis engine.
+type DirectoryAnalyzer interface {
+	// AnalyzeDirectory inspects a file set and returns the findings it produced.
+	AnalyzeDirectory(ctx context.Context, files *source.FileSetInfo) (*domain.AnalysisRun, error)
+	// Rules returns the rules exposed by the analyzer with their support matrix.
+	Rules() []domain.Rule
 }

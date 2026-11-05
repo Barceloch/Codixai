@@ -21,8 +21,12 @@ Codixai. The conventions are in
 4. **Everything is deterministic.** The same input produces the same
    document. Sort whatever reaches an output.
 5. **The results are versioned, serializable documents.** Every document
-   carries `schema_version`; a change of a consumer visible field
-   increments it.
+   carries `schema_version`, and the value increments when a consumer
+   visible field is added, removed or changes meaning **in a way that is
+   not backward compatible**. An additive, optional field that no published
+   consumer can observe does not increment it. The authoritative wording is
+   the doc comment of `domain.SchemaVersion`; a change of the contract is a
+   decision of the maintainer.
 6. **The epistemic status is honest.** A heuristic is `inferred`, never a
    confirmed bug. The absence of findings never proves that a change is
    correct. A claim that cannot be decided is `unresolved`, never

@@ -257,6 +257,21 @@ type sarifRunProperties struct {
 	// SuppressedByBaseline counts the findings that the baseline already
 	// knows. They are not results: they are not new findings.
 	SuppressedByBaseline int `json:"suppressedByBaseline"`
+	// MissingRules lists the rules that the run could not apply. A directory
+	// analysis cannot compare two revisions, so a rule that needs a diff is
+	// declared here instead of being listed as an available rule or hidden as
+	// if it had passed.
+	MissingRules []sarifMissingRule `json:"missingRules,omitempty"`
+}
+
+// sarifMissingRule is a rule that the run did not apply.
+type sarifMissingRule struct {
+	// ID is the identifier of the rule.
+	ID string `json:"id"`
+	// Version is the version of the rule.
+	Version string `json:"version"`
+	// Reason explains why the rule was not applied.
+	Reason string `json:"reason"`
 }
 
 // SARIF builds the SARIF 2.1.0 document of an audit result.
@@ -472,6 +487,10 @@ func buildResults(findings []domain.Finding, changes *domain.ChangeSet, index ca
 
 // resultEntry maps one finding onto its SARIF result.
 func resultEntry(finding domain.Finding, changes *domain.ChangeSet, index catalogIndex) sarifResult {
+	fingerprint := ""
+	if changes != nil {
+		fingerprint = fingerprintOf(finding, changes)
+	}
 	return sarifResult{
 		RuleID:    finding.RuleID,
 		RuleIndex: index.position(finding.RuleID),
@@ -483,7 +502,7 @@ func resultEntry(finding domain.Finding, changes *domain.ChangeSet, index catalo
 				Region:           regionOf(finding.Location),
 			},
 		}},
-		PartialFingerprints: sarifPartialFingerprints{CodixaiV1: fingerprintOf(finding, changes)},
+		PartialFingerprints: sarifPartialFingerprints{CodixaiV1: fingerprint},
 		Properties: sarifResultProperties{
 			EpistemicStatus: string(finding.EpistemicStatus),
 			SupportLevel:    supportLevelOf(finding, index.rule(finding.RuleID)),
@@ -556,4 +575,67 @@ func regionOf(location domain.Location) *sarifRegion {
 		end = location.StartLine
 	}
 	return &sarifRegion{StartLine: location.StartLine, EndLine: end}
+}
+
+// SARIFDirectory builds the SARIF 2.1.0 document of a directory analysis.
+//
+// It accepts the run of a directory analysis, which has no ChangeSet and
+// therefore no baseline fingerprint. The findings are identified by their
+// path, line and rule; the fingerprints are empty. The rules that the run
+// could not apply are published in the properties of the run, never as a
+// result and never as a pass.
+//
+// The command line does not expose this document yet: the report command
+// needs a Git origin. The function exists, and is tested, as the generator
+// that an integration can use without changing the contract of that command.
+func SARIFDirectory(run *domain.AnalysisRun, options SARIFOptions) SarifDocument {
+	var (
+		findings []domain.Finding
+		rules    = options.Rules
+		version  = strings.TrimSpace(options.ToolVersion)
+		missing  []sarifMissingRule
+	)
+	if run != nil {
+		findings = run.Findings
+		if len(rules) == 0 {
+			rules = run.Rules
+		}
+		if version == "" {
+			version = strings.TrimSpace(run.ToolVersion)
+		}
+		for _, rule := range run.MissingRules {
+			missing = append(missing, sarifMissingRule{
+				ID:      rule.ID,
+				Version: rule.Version,
+				Reason:  rule.Reason,
+			})
+		}
+	}
+	if version == "" {
+		version = unknownToolVersion
+	}
+
+	catalog, index := buildCatalog(rules, findings)
+	return SarifDocument{
+		Schema:  SchemaURL,
+		Version: Version,
+		Runs: []sarifRun{{
+			Tool: sarifTool{Driver: sarifDriver{
+				Name:           DriverName,
+				Version:        version,
+				InformationURI: InformationURI,
+				Rules:          catalog,
+			}},
+			Results: buildResultsDirectory(findings, index),
+			Properties: sarifRunProperties{
+				SuppressedByBaseline: 0,
+				MissingRules:         missing,
+			},
+		}},
+	}
+}
+
+// buildResultsDirectory builds results for directory analysis (no baseline fingerprinting).
+func buildResultsDirectory(findings []domain.Finding, index catalogIndex) []sarifResult {
+	return buildResults(findings, nil, index)
 }

@@ -159,6 +159,14 @@ func (c *Context) evidence(line int) domain.Evidence {
 	if !ok {
 		hunk = 0
 	}
+	// For directory analysis (OriginDirectory), use source_range evidence
+	// instead of diff_hunk since there is no actual diff.
+	if c.Changes.Origin == domain.OriginDirectory {
+		return domain.Evidence{
+			Kind: "source_range",
+			Ref:  fmt.Sprintf("file:%s:%d", c.View.Path, line),
+		}
+	}
 	return domain.Evidence{
 		Kind: "diff_hunk",
 		Ref:  fmt.Sprintf("hunk:%s:%d", c.View.Path, hunk),

@@ -142,6 +142,28 @@ type AnalysisRun struct {
 	Summary       Summary   `json:"summary"`
 	Rules         []Rule    `json:"rules,omitempty"`
 	Limitations   []string  `json:"limitations,omitempty"`
+	// MissingRules lists rules that are not applicable in the current analysis mode.
+	// This field is only populated for directory analysis.
+	MissingRules []MissingRule `json:"missing_rules,omitempty"`
+	// Files contains file statistics for directory analysis.
+	// This field is only populated for directory analysis.
+	Files *DirectoryFilesInfo `json:"files,omitempty"`
+}
+
+// DirectoryFilesInfo contains file statistics for directory analysis.
+type DirectoryFilesInfo struct {
+	Discovered    int      `json:"discovered"`
+	Analyzed      int      `json:"analyzed"`
+	Excluded      int      `json:"excluded"`
+	ExcludedPaths []string `json:"excluded_paths,omitempty"`
+	Skipped       int      `json:"skipped"`
+}
+
+// MissingRule describes a rule that is not applicable in the current analysis mode.
+type MissingRule struct {
+	ID      string `json:"id"`
+	Version string `json:"version"`
+	Reason  string `json:"reason"`
 }
 
 // VerificationRun is the document produced by verifying a set of claims.

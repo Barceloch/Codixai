@@ -292,15 +292,25 @@ func newAuditCommand(env *Env) *Command {
 	command := &Command{
 		Use:   "audit",
 		Short: "Audit the changes of a repository against the rule catalog.",
-		Long: "Audit the changes of a repository against the rule catalog.\n" +
+		Long: "Audit the changes of a repository, or the whole content of a directory, against the rule catalog.\n" +
 			"\n" +
-			"The command reads the changes of the repository, applies the rules that\n" +
-			"support the language of every changed file and reports the findings with\n" +
-			"their evidence, their support level and their limitations.\n" +
+			"The command applies the rules that support the language of every changed\n" +
+			"file and reports the findings with their evidence, their support level and\n" +
+			"their limitations.\n" +
 			"\n" +
-			"Exactly one origin has to be selected: --base compares the repository with\n" +
-			"a revision, --staged audits the staging area and --worktree audits the\n" +
-			"changes that are not committed yet.\n" +
+			"The command has two modes and never mixes them: a positional argument\n" +
+			"selects directory analysis, and the origin flags select diff analysis.\n" +
+			"\n" +
+			"Directory analysis: `codixai audit <path>` analyzes the current content of\n" +
+			"a directory without requiring a Git repository. The document declares\n" +
+			"`origin: directory` and an empty revision: it reports the state of the\n" +
+			"files, not changes between revisions. A positional argument cannot be\n" +
+			"combined with `--diff`.\n" +
+			"\n" +
+			"Diff analysis: `codixai audit --diff` compares the repository with one\n" +
+			"origin. Exactly one origin has to be selected: `--base` compares the\n" +
+			"repository with a revision, `--staged` audits the staging area and\n" +
+			"`--worktree` audits the changes that are not committed yet.\n" +
 			"\n" +
 			"The command applies the baseline of the repository, at the path of the\n" +
 			"audit.baseline key of the configuration. A finding that the baseline knows\n" +
@@ -312,9 +322,10 @@ func newAuditCommand(env *Env) *Command {
 		Example: "codixai audit --diff --worktree\n" +
 			"codixai audit --diff --staged\n" +
 			"codixai audit --diff --base main\n" +
+			"codixai audit ./mi-proyecto\n" +
 			"codixai audit --rules",
 		Flags: func(fs *flag.FlagSet) {
-			fs.BoolVar(&options.diff, "diff", false, "Audit the changes of the repository. Required in this milestone.")
+			fs.BoolVar(&options.diff, "diff", false, "Audit the changes of a repository against a revision. Without this flag, `audit` analyzes the current content of a directory.")
 			fs.StringVar(&options.base, "base", "", "Base revision to compare the repository with HEAD.")
 			fs.BoolVar(&options.staged, "staged", false, "Audit the changes of the staging area.")
 			fs.BoolVar(&options.worktree, "worktree", false, "Audit the changes that are not committed yet.")
@@ -322,8 +333,14 @@ func newAuditCommand(env *Env) *Command {
 		},
 	}
 	command.RunE = func(ctx context.Context, args []string) error {
-		if len(args) > 0 {
-			return Usagef("the audit command does not accept arguments, got %q", args[0])
+		if len(args) > 1 {
+			return Usagef("the audit command does not accept more than one argument, got %q", args)
+		}
+		if len(args) == 1 && options.diff {
+			return Usagef("cannot combine a positional argument with --diff: use --root <path> for directory analysis or --diff with origin flags")
+		}
+		if len(args) == 1 && !options.diff {
+			env.Root = args[0]
 		}
 		return runAudit(ctx, env, options)
 	}
@@ -336,9 +353,15 @@ func runAudit(ctx context.Context, env *Env, options *auditOptions) error {
 		return printRuleCatalog(ctx, env)
 	}
 	if !options.diff {
-		return Usagef("the flag --diff is required: this milestone audits changes only, " +
-			"use --diff with --base, --staged or --worktree")
+		// Directory mode: analyze all files of a directory without requiring Git.
+		return runDirectoryAudit(ctx, env)
 	}
+	// Diff mode: existing behavior for Git repositories.
+	return runDiffAudit(ctx, env, options)
+}
+
+// runDiffAudit runs the existing Git-based audit command.
+func runDiffAudit(ctx context.Context, env *Env, options *auditOptions) error {
 	origin, base, err := resolveOrigin(options.base, options.staged, options.worktree, "audit")
 	if err != nil {
 		return err
@@ -379,6 +402,40 @@ func runAudit(ctx context.Context, env *Env, options *auditOptions) error {
 	writeAuditDiagnostics(env, result)
 	if result.Failed {
 		return &FindingsError{Count: result.FailingFindings, Threshold: result.FailOn}
+	}
+	return nil
+}
+
+// runDirectoryAudit runs a full directory audit without requiring Git.
+func runDirectoryAudit(ctx context.Context, env *Env) error {
+	root, err := resolveRoot(env.Root)
+	if err != nil {
+		return err
+	}
+
+	analyzer := analysis.NewDirectoryAnalyzer(analysis.WithToolVersion(Version))
+
+	result, err := application.RunDirectoryAudit(ctx, application.DirectoryAuditRequest{
+		Root:     root,
+		Analyzer: analyzer,
+	})
+	if err != nil {
+		return sanitizeError(err, root)
+	}
+
+	if env.JSON() {
+		if err := writeJSONDocument(env.Stdout, result.Run, "analysis document"); err != nil {
+			return err
+		}
+	} else {
+		writeDirectoryAuditReport(env.Stdout, env.Renderer(), result, root)
+	}
+
+	writeDirectoryAuditDiagnostics(env, result, root)
+	if result.Run.Summary.Total > 0 && result.Run.Summary.BySeverity != nil {
+		if result.Run.Summary.BySeverity["error"] > 0 {
+			return &FindingsError{Count: result.Run.Summary.BySeverity["error"], Threshold: "error"}
+		}
 	}
 	return nil
 }

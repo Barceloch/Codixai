@@ -618,3 +618,123 @@ func jsonField(object map[string]any, key, context string) (any, error) {
 	}
 	return value, nil
 }
+
+// directoryFinding returns a finding of a directory analysis.
+func directoryFinding() domain.Finding {
+	return domain.Finding{
+		SchemaVersion:   domain.SchemaVersion,
+		RuleID:          "CDX-IMP-001",
+		RuleVersion:     "1",
+		Severity:        domain.SeverityError,
+		EpistemicStatus: domain.EpistemicObserved,
+		Language:        domain.LangGo,
+		Message:         "The import is not declared.",
+		Location:        domain.Location{Path: "main.go", StartLine: 3, EndLine: 3},
+		Evidence:        []domain.Evidence{{Kind: "source_range", Ref: "file:main.go:3"}},
+	}
+}
+
+// TestSARIFDirectoryProducesTheDocument checks the structure of the directory
+// document: the schema, the version, the location, the empty fingerprint and
+// the not applicable rule.
+func TestSARIFDirectoryProducesTheDocument(t *testing.T) {
+	run := &domain.AnalysisRun{
+		SchemaVersion: domain.SchemaVersion,
+		ToolVersion:   "1.2.3",
+		Origin:        string(domain.OriginDirectory),
+		Findings:      []domain.Finding{directoryFinding()},
+		Rules: []domain.Rule{{
+			ID:          "CDX-IMP-001",
+			Version:     "1",
+			Description: "An import is not declared in the manifests.",
+			Severity:    domain.SeverityError,
+		}},
+		MissingRules: []domain.MissingRule{{
+			ID:      "CDX-TST-001",
+			Version: "1",
+			Reason:  "requires diff analysis",
+		}},
+	}
+
+	document := SARIFDirectory(run, SARIFOptions{})
+
+	if document.Schema != SchemaURL {
+		t.Errorf("the schema is %q, want %q", document.Schema, SchemaURL)
+	}
+	if document.Version != Version {
+		t.Errorf("the version is %q, want %q", document.Version, Version)
+	}
+	if len(document.Runs) != 1 {
+		t.Fatalf("the document has %d runs, want one", len(document.Runs))
+	}
+	only := document.Runs[0]
+	if only.Tool.Driver.Version != "1.2.3" {
+		t.Errorf("the driver version is %q, want %q", only.Tool.Driver.Version, "1.2.3")
+	}
+	if len(only.Results) != 1 {
+		t.Fatalf("the document has %d results, want one", len(only.Results))
+	}
+
+	result := only.Results[0]
+	if result.RuleID != "CDX-IMP-001" {
+		t.Errorf("the rule id is %q, want CDX-IMP-001", result.RuleID)
+	}
+	location := result.Locations[0].PhysicalLocation
+	if location.ArtifactLocation.URI != "main.go" {
+		t.Errorf("the artifact is %q, want main.go", location.ArtifactLocation.URI)
+	}
+	if location.Region == nil || location.Region.StartLine != 3 || location.Region.EndLine != 3 {
+		t.Errorf("the region is %+v, want lines 3 to 3", location.Region)
+	}
+	if result.PartialFingerprints.CodixaiV1 != "" {
+		t.Errorf("a directory finding carries a fingerprint: %q", result.PartialFingerprints.CodixaiV1)
+	}
+
+	for _, rule := range only.Tool.Driver.Rules {
+		if rule.ID == "CDX-TST-001" {
+			t.Error("a not applicable rule is published as an available rule")
+		}
+	}
+	if len(only.Properties.MissingRules) != 1 {
+		t.Fatalf("the properties declare %d missing rules, want one", len(only.Properties.MissingRules))
+	}
+	if only.Properties.MissingRules[0].ID != "CDX-TST-001" {
+		t.Errorf("the missing rule is %q, want CDX-TST-001", only.Properties.MissingRules[0].ID)
+	}
+}
+
+// TestSARIFDirectoryAcceptsANilRun checks that the builder never panics on an
+// absent run.
+func TestSARIFDirectoryAcceptsANilRun(t *testing.T) {
+	document := SARIFDirectory(nil, SARIFOptions{})
+	if document.Schema != SchemaURL || document.Version != Version {
+		t.Errorf("the document header is %q %q", document.Schema, document.Version)
+	}
+	if len(document.Runs) != 1 {
+		t.Fatalf("the document has %d runs, want one", len(document.Runs))
+	}
+	if len(document.Runs[0].Results) != 0 {
+		t.Errorf("the empty run has %d results, want none", len(document.Runs[0].Results))
+	}
+}
+
+// TestSARIFDirectoryIsDeterministic checks that two builds of the same run
+// serialize to the same bytes.
+func TestSARIFDirectoryIsDeterministic(t *testing.T) {
+	run := &domain.AnalysisRun{
+		SchemaVersion: domain.SchemaVersion,
+		ToolVersion:   "1.2.3",
+		Findings:      []domain.Finding{directoryFinding()},
+	}
+	first, err := json.Marshal(SARIFDirectory(run, SARIFOptions{}))
+	if err != nil {
+		t.Fatalf("the document cannot be marshaled: %v", err)
+	}
+	second, err := json.Marshal(SARIFDirectory(run, SARIFOptions{}))
+	if err != nil {
+		t.Fatalf("the document cannot be marshaled: %v", err)
+	}
+	if string(first) != string(second) {
+		t.Error("two builds of the same run produced different bytes")
+	}
+}

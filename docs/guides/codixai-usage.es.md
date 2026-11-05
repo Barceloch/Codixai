@@ -149,10 +149,15 @@ codixai report --format sarif --base main
 
 # Otro repositorio
 codixai --root ../otro-repositorio audit --diff --worktree
+
+# Un directorio completo, sin repositorio Git
+codixai audit ./mi-proyecto
 ```
 
-`audit`, `report` y `baseline create` exigen **exactamente un origen**:
-`--base`, `--staged` o `--worktree`.
+`audit --diff`, `report` y `baseline create` exigen **exactamente un origen**:
+`--base`, `--staged` o `--worktree`. La forma `codixai audit <ruta>` no necesita
+ningún origen: analiza el directorio completo sin Git (ver
+[`audit <ruta>`](#audit-ruta-análisis-de-un-directorio-sin-git)).
 
 ### Códigos de salida
 
@@ -198,7 +203,7 @@ comandos: audit, report, baseline, verify, init, index, impact, ui, version, hel
 
 | Flag | Qué hace |
 | ---- | -------- |
-| `--diff` | Audita los cambios. Obligatorio en esta versión. |
+| `--diff` | Audita los cambios de un repositorio Git. Sin este flag, `audit` analiza el directorio indicado, o el directorio actual si no se indica ninguno. |
 | `--base <ref>` | Compara con una revisión (`main`, `origin/main`, un hash). |
 | `--staged` | Audita el área de preparación. |
 | `--worktree` | Audita los cambios sin confirmar. |
@@ -209,6 +214,65 @@ codixai audit --rules
 codixai audit --diff --worktree --plain
 codixai audit --diff --base origin/main --format json > audit.json
 ```
+
+### `audit <ruta>`: análisis de un directorio sin Git
+
+`codixai audit <ruta>` analiza el contenido actual de un directorio completo y
+**no necesita un repositorio Git**. Sin ruta, `audit` analiza el directorio
+actual. No es un análisis de diff:
+
+- El documento declara `origin: directory` y una `revision` vacía: no compara
+  dos revisiones.
+- La evidencia de un hallazgo es un rango del archivo (`source_range`), no un
+  hunk del diff.
+- Una ruta y `--diff` no se pueden combinar: la herramienta responde con el
+  código `2`.
+
+```bash
+codixai audit ./mi-proyecto
+codixai audit ./mi-proyecto --format json > analisis.json
+```
+
+**Reglas no aplicables.** Algunas reglas necesitan comparar dos revisiones. En
+este modo no se ejecutan ni se cuentan como aprobadas: se declaran en
+`missing_rules` del JSON y en la sección «Rules not applicable» del informe de
+texto. Hoy `CDX-TST-001` (pruebas eliminadas o debilitadas) es la única regla en
+esa situación.
+
+**Qué se analiza y qué se omite.** El documento lo resume en cuatro contadores:
+`discovered`, `analyzed`, `excluded` y `skipped`.
+
+| Situación | Resultado |
+| --------- | --------- |
+| Extensión sin lenguaje soportado | Se omite y suma a `skipped`. |
+| Archivo binario (un byte nulo entre sus primeros 8 000 bytes) | Se omite y suma a `skipped`. |
+| Archivo de más de 10 MB | Se omite y suma a `skipped`, con un diagnóstico en la salida de error. |
+| Se alcanzan 10 000 archivos recolectados | El recorrido se detiene y se emite un diagnóstico. |
+| Ruta excluida por `analysis.exclude` | No se analiza; un directorio excluido no se recorre y se anuncia en la salida de error. |
+| Enlace simbólico a un archivo dentro de la raíz | Se lee. |
+| Enlace simbólico que apunta fuera de la raíz | Se rechaza, con un diagnóstico. |
+| Enlace simbólico a un directorio | **No se recorre**: los archivos que hay debajo no se analizan. |
+| Enlace roto | Se omite, con un diagnóstico. |
+
+La raíz puede ser un enlace simbólico: se resuelve antes de analizarla.
+
+**`respect_gitignore` no aplica.** En este modo solo se aplican los patrones de
+`analysis.exclude`; el `.gitignore` del directorio no se lee. Un archivo que
+solo el `.gitignore` ignora se analiza igual.
+
+**SARIF.** El comando `report`, que escribe SARIF, exige un origen de Git
+(`--base`, `--staged` o `--worktree`). El análisis de directorio no exporta
+SARIF desde el CLI en esta versión.
+
+**Riesgo de concurrencia.** La comprobación de que una ruta pertenece a la raíz
+y la lectura del archivo son dos pasos separados. Un proceso que pueda modificar
+el directorio analizado al mismo tiempo podría cambiar una ruta entre la
+comprobación y la lectura (TOCTOU, *time-of-check to time-of-use*). No se ha
+demostrado ninguna explotación; se documenta porque el límite existe.
+
+Los códigos de salida son los mismos que en el resto de la herramienta: `0` sin
+hallazgos que alcancen el umbral, `3` con hallazgos, `1` error de ejecución o de
+configuración y `2` argumentos inválidos.
 
 ### `report`
 
@@ -359,7 +423,7 @@ analysis:
     - build/**
     - .git/**
     - coverage/**
-  respect_gitignore: true
+  respect_gitignore: true   # solo en el análisis de diff; no en el análisis de directorio
 
 audit:
   fail_on: error          # error | warning | none
@@ -373,6 +437,10 @@ output:
 
 Los errores del cargador nombran el archivo y la línea: un valor inválido no se
 ignora en silencio.
+
+`respect_gitignore` se aplica al análisis de diff. El análisis de directorio sin
+Git no lee el `.gitignore`: solo aplica `analysis.exclude` (ver
+[`audit <ruta>`](#audit-ruta-análisis-de-un-directorio-sin-git)).
 
 ## 7. Verificar la descarga
 
@@ -429,6 +497,15 @@ Ajusta `audit.fail_on` en `.codixai.yml` o usa una línea base.
 - **El servidor MCP** (`codixai-mcp-srv`) no forma parte de esta entrega.
 - **Un resultado vacío no prueba que el cambio sea correcto.** La ausencia de
   hallazgos no es una garantía.
+- **El análisis de directorio no aplica `.gitignore`.** Solo se aplican los
+  patrones de `analysis.exclude`.
+- **El análisis de directorio no recorre enlaces simbólicos a directorios.** Los
+  archivos que hay debajo no se analizan.
+- **El análisis de directorio tiene un riesgo TOCTOU** entre la comprobación de
+  la ruta y la lectura del archivo, si otro proceso modifica el directorio
+  analizado al mismo tiempo. No se ha demostrado ninguna explotación.
+- **El análisis de directorio no exporta SARIF desde el CLI.** `report` exige un
+  origen de Git.
 
 ## 10. Estado de verificación de los binarios
 

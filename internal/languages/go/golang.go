@@ -210,6 +210,10 @@ func ExtractImportsRaw(lines []lexical.Line) []lexical.ImportSpec {
 // When inside an import block, import paths are string literals, so they
 // appear as KindString segments. The function handles this by also
 // scanning string segments within import blocks.
+//
+// For single-line imports outside import blocks, the import path is a
+// string literal, so we also scan string segments on lines that start
+// with "import" to extract the path.
 func ExtractImports(lines []lexical.Line, segments map[int][]lexical.Segment) []lexical.ImportSpec {
 	var imports []lexical.ImportSpec
 	inBlock := false
@@ -232,9 +236,31 @@ func ExtractImports(lines []lexical.Line, segments map[int][]lexical.Segment) []
 				text = line.Text
 			}
 		} else {
-			// Outside import block: use only code segments to avoid
-			// false positives from strings and comments.
-			text = lexical.CodeOrText(line, segments)
+			// Outside import block: use code segments to avoid false positives
+			// from strings and comments. However, for lines that start with
+			// "import", we need the full text including string segments to
+			// extract the import path (which is a string literal).
+			if segs, ok := segments[line.Number]; ok {
+				var codeParts, fullParts []string
+				for _, seg := range segs {
+					if seg.Kind != lexical.KindComment {
+						fullParts = append(fullParts, seg.Text)
+						if seg.Kind == lexical.KindCode {
+							codeParts = append(codeParts, seg.Text)
+						}
+					}
+				}
+				fullText := strings.Join(fullParts, "")
+				codeText := strings.Join(codeParts, "")
+				trimmedFull := strings.TrimSpace(fullText)
+				if strings.HasPrefix(trimmedFull, "import") {
+					text = fullText
+				} else {
+					text = codeText
+				}
+			} else {
+				text = line.Text
+			}
 		}
 		trimmed := strings.TrimSpace(text)
 		if inBlock {

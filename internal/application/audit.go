@@ -9,6 +9,7 @@ import (
 	"github.com/barceloch/codixai/internal/baseline"
 	"github.com/barceloch/codixai/internal/domain"
 	"github.com/barceloch/codixai/internal/policies"
+	"github.com/barceloch/codixai/internal/source"
 )
 
 // AuditRequest describes the audit to run.
@@ -310,4 +311,68 @@ func thresholdRank(failOn string) int {
 	default:
 		return severityRank(domain.SeverityError)
 	}
+}
+
+// DirectoryAuditRequest describes a full directory audit.
+type DirectoryAuditRequest struct {
+	// Root is the absolute path of the analyzed directory.
+	Root string
+	// Config holds the policy of the repository.
+	Config *policies.Config
+	// Analyzer applies the rule catalog to the files.
+	Analyzer DirectoryAnalyzer
+}
+
+// DirectoryAuditResult is the outcome of a directory audit.
+type DirectoryAuditResult struct {
+	// Run is the document produced by the analysis.
+	Run *domain.AnalysisRun
+	// FileSet is the information about discovered and analyzed files.
+	FileSet *source.FileSetInfo
+}
+
+// RunDirectoryAudit analyzes all files of a directory without requiring Git.
+//
+// It discovers files, applies policies, runs compatible rules, and returns
+// both the analysis run and the file discovery information.
+func RunDirectoryAudit(ctx context.Context, request DirectoryAuditRequest) (*DirectoryAuditResult, error) {
+	if strings.TrimSpace(request.Root) == "" {
+		return nil, fmt.Errorf("the directory root is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	config := request.Config
+	if config == nil {
+		loaded, err := policies.Load(request.Root)
+		if err != nil {
+			return nil, err
+		}
+		config = loaded
+	}
+
+	src, err := source.NewDirectorySource(request.Root, config)
+	if err != nil {
+		return nil, err
+	}
+
+	fileSet, err := src.Files(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if request.Analyzer == nil {
+		return nil, fmt.Errorf("the directory audit needs a directory analyzer")
+	}
+
+	result, err := request.Analyzer.AnalyzeDirectory(ctx, fileSet)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DirectoryAuditResult{
+		Run:     result,
+		FileSet: fileSet,
+	}, nil
 }

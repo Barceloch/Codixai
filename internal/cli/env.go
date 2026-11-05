@@ -116,8 +116,14 @@ func envFrom(ctx context.Context) *Env {
 
 // resolveRoot returns the absolute path of the analyzed repository.
 //
-// The default is the current directory. The path is validated, so that the
-// failure of a command never depends on the state of the working tree.
+// The default is the current directory. The path is resolved against the
+// working directory and validated, so that the failure of a command never
+// depends on the state of the working tree.
+//
+// The root is chosen by the user: a path that the user writes explicitly is
+// the authorized root, even when it lives outside the working directory. The
+// containment of the analyzed files inside that root is enforced later, when
+// the files are read.
 func resolveRoot(value string) (string, error) {
 	root := strings.TrimSpace(value)
 	if root == "" {

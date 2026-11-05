@@ -10,6 +10,8 @@ const (
 	OriginStaged ChangeOrigin = "staged"
 	// OriginWorktree analyzes unstaged working tree changes.
 	OriginWorktree ChangeOrigin = "worktree"
+	// OriginDirectory analyzes files of a directory without Git.
+	OriginDirectory ChangeOrigin = "directory"
 )
 
 // FileChange status values.

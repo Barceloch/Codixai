@@ -3,10 +3,13 @@ package golang_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/barceloch/codixai/internal/domain"
 	golang "github.com/barceloch/codixai/internal/languages/go"
 	"github.com/barceloch/codixai/internal/languages/lexical"
+	"github.com/barceloch/codixai/internal/languages/registry"
 )
 
 // TestParseGoMod checks the reader of the go.mod file.
@@ -332,5 +335,114 @@ outer:
 	}
 	if len(references) != 0 {
 		t.Errorf("the references are %+v, want none", references)
+	}
+}
+
+// goSource joins the lines of a Go fixture.
+//
+// The fixture is built from separate lines, and not from a raw string, so
+// that the test file itself does not contain a line that starts with the word
+// import: the diff analysis of the test file would read it as a declaration.
+func goSource(lines ...string) string {
+	return strings.Join(lines, "\n") + "\n"
+}
+
+// scanGoLines scans a Go source into the lines and segments that
+// ExtractImports consumes.
+func scanGoLines(t *testing.T, source string) ([]lexical.Line, map[int][]lexical.Segment) {
+	t.Helper()
+	profile, ok := registry.ProfileFor(domain.LangGo)
+	if !ok {
+		t.Fatal("the registry does not expose the Go profile")
+	}
+	scanner := lexical.NewScanner(profile)
+	parts := strings.Split(source, "\n")
+	if len(parts) > 0 && parts[len(parts)-1] == "" {
+		parts = parts[:len(parts)-1]
+	}
+	lines := make([]lexical.Line, 0, len(parts))
+	segments := make(map[int][]lexical.Segment, len(parts))
+	for index, text := range parts {
+		number := index + 1
+		lines = append(lines, lexical.Line{Number: number, Text: text})
+		segments[number] = scanner.Scan(text)
+	}
+	return lines, segments
+}
+
+// TestExtractImportsSingleLine checks that an import declared on one line is
+// detected. The path of a single line import is a string literal, so the
+// extraction has to read the string segment of the line.
+func TestExtractImportsSingleLine(t *testing.T) {
+	source := goSource(
+		"package main",
+		"",
+		`import "github.com/example/missing"`,
+		"",
+		"func main() {}",
+	)
+	lines, segments := scanGoLines(t, source)
+	imports := golang.ExtractImports(lines, segments)
+	if len(imports) != 1 {
+		t.Fatalf("the imports are %+v, want one", imports)
+	}
+	if imports[0].Module != "github.com/example/missing" {
+		t.Errorf("the module is %q, want %q", imports[0].Module, "github.com/example/missing")
+	}
+	if imports[0].Line != 3 {
+		t.Errorf("the line is %d, want 3", imports[0].Line)
+	}
+}
+
+// TestExtractImportsBlock checks that the imports of a block are detected.
+func TestExtractImportsBlock(t *testing.T) {
+	source := goSource(
+		"package main",
+		"",
+		"import (",
+		"\t\"fmt\"",
+		"\t\"github.com/example/missing\"",
+		")",
+		"",
+		"func main() { fmt.Println(\"x\") }",
+	)
+	lines, segments := scanGoLines(t, source)
+	imports := golang.ExtractImports(lines, segments)
+	if len(imports) != 2 {
+		t.Fatalf("the imports are %+v, want two", imports)
+	}
+	modules := map[string]int{}
+	for _, spec := range imports {
+		modules[spec.Module] = spec.Line
+	}
+	if modules["fmt"] != 4 {
+		t.Errorf("fmt is not reported on line 4: %+v", modules)
+	}
+	if modules["github.com/example/missing"] != 5 {
+		t.Errorf("the missing module is not reported on line 5: %+v", modules)
+	}
+}
+
+// TestExtractImportsIgnoresNonImportStrings checks that a string literal that
+// contains the word import, and a comment, are not mistaken for a declaration.
+func TestExtractImportsIgnoresNonImportStrings(t *testing.T) {
+	source := goSource(
+		"package main",
+		"",
+		`import "github.com/example/real"`,
+		"",
+		`var message = "import \"github.com/example/fake\""`,
+		"",
+		"// import \"github.com/example/commented\"",
+		"",
+		"func main() {}",
+	)
+	lines, segments := scanGoLines(t, source)
+	imports := golang.ExtractImports(lines, segments)
+	if len(imports) != 1 {
+		t.Fatalf("the imports are %+v, want one", imports)
+	}
+	if imports[0].Module != "github.com/example/real" {
+		t.Errorf("the module is %q, want %q", imports[0].Module, "github.com/example/real")
 	}
 }

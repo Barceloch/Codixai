@@ -265,3 +265,63 @@ func describeClaimCounts(counts map[string]int) string {
 	}
 	return strings.Join(parts, ", ")
 }
+
+// writeDirectoryAuditReport writes the human readable report of a directory audit.
+func writeDirectoryAuditReport(w io.Writer, r *ui.Renderer, result *application.DirectoryAuditResult, root string) {
+	run := result.Run
+	fileSet := result.FileSet
+
+	fmt.Fprintln(w, r.Title("Codixai audit (directory)"))
+	writeField(w, r, "  ", "origin", string(domain.OriginDirectory))
+	writeField(w, r, "  ", "root", displayPath(root))
+	writeField(w, r, "  ", "generated at", run.GeneratedAt)
+	writeField(w, r, "  ", "tool", fmt.Sprintf("codixai %s (schema %s)", run.ToolVersion, run.SchemaVersion))
+	writeField(w, r, "  ", "files discovered", fmt.Sprintf("%d", fileSet.Discovered))
+	writeField(w, r, "  ", "files analyzed", fmt.Sprintf("%d", len(fileSet.Files)))
+	writeField(w, r, "  ", "files excluded", fmt.Sprintf("%d", fileSet.Excluded))
+
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s (%d)\n", r.Title("Findings"), len(run.Findings))
+	if len(run.Findings) == 0 {
+		fmt.Fprintln(w, "  No finding. The absence of findings does not prove that the directory is correct.")
+	}
+	for _, finding := range run.Findings {
+		writeFinding(w, r, finding)
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, r.Title("Summary"))
+	writeField(w, r, "  ", "total", fmt.Sprintf("%d", run.Summary.Total))
+	writeField(w, r, "  ", "by severity", describeCounts(run.Summary.BySeverity))
+	writeField(w, r, "  ", "by rule", describeCounts(run.Summary.ByRule))
+	writeField(w, r, "  ", "by language", describeCounts(run.Summary.ByLanguage))
+	writeField(w, r, "  ", "by epistemic status", describeCounts(run.Summary.ByEpistemicStatus))
+
+	if len(run.MissingRules) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "%s (%d)\n", r.Title("Rules not applicable"), len(run.MissingRules))
+		for _, rule := range run.MissingRules {
+			fmt.Fprintf(w, "  - %s v%s: %s\n", rule.ID, rule.Version, rule.Reason)
+		}
+	}
+
+	if len(run.Limitations) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, r.Title("Limitations"))
+		for _, limitation := range run.Limitations {
+			fmt.Fprintf(w, "  - %s\n", limitation)
+		}
+	}
+}
+
+// writeDirectoryAuditDiagnostics writes the diagnostics of a directory audit.
+func writeDirectoryAuditDiagnostics(env *Env, result *application.DirectoryAuditResult, root string) {
+	fileSet := result.FileSet
+	for _, diagnostic := range fileSet.Diagnostics {
+		fmt.Fprintf(env.Stderr, "codixai: %s\n", diagnostic)
+	}
+	if len(fileSet.ExcludedPaths) > 0 {
+		fmt.Fprintf(env.Stderr, "codixai: %d path(s) excluded by policy: %s\n",
+			len(fileSet.ExcludedPaths), strings.Join(fileSet.ExcludedPaths, ", "))
+	}
+}

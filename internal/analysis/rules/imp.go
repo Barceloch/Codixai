@@ -77,12 +77,21 @@ func importSpecs(ctx *Context) []lexical.ImportSpec {
 // import blocks), then filter to only report findings on ADDED lines.
 // This correctly identifies imports in the import block while avoiding
 // false positives from strings and comments outside import blocks.
+//
+// For directory analysis (Status == FileAdded), all imports are reported
+// because every line is considered part of the analysis.
 func goImportSpecs(ctx *Context) []lexical.ImportSpec {
 	// Use textual extraction on all new side lines (context + added) with
 	// code segments to filter out strings and comments. Inside import
 	// blocks, string segments are also scanned because import paths
 	// are string literals.
 	specs := golang.ExtractImports(ctx.View.NewLines, ctx.View.NewSegments)
+
+	// For directory analysis, every line is "added" so no filtering needed.
+	// For diff analysis, only report imports on ADDED lines.
+	if ctx.View.Status == domain.FileAdded {
+		return specs
+	}
 
 	// Filter to only report imports on ADDED lines
 	var addedSpecs []lexical.ImportSpec
@@ -91,7 +100,6 @@ func goImportSpecs(ctx *Context) []lexical.ImportSpec {
 			addedSpecs = append(addedSpecs, spec)
 		}
 	}
-	ctx.Diagnostic(fmt.Sprintf("DEBUG IMP ExtractImports (code segments, added only): imports=%v", addedSpecs))
 	return addedSpecs
 }
 
@@ -140,7 +148,6 @@ func classifyImport(ctx *Context, spec lexical.ImportSpec) importDecision {
 // classifyGoImport decides whether a Go import has to be reported.
 func classifyGoImport(ctx *Context, spec lexical.ImportSpec) importDecision {
 	manifest := golang.ReadManifest(ctx.Root)
-	ctx.Diagnostic(fmt.Sprintf("DEBUG IMP: root=%s, manifest.Found=%v, module=%s, requires=%v, spec=%s", ctx.Root, manifest.Found, manifest.Module, manifest.Requires, spec.Module))
 	decision := importDecision{ManifestFound: manifest.Found}
 	if golang.IsStdlib(spec.Module) {
 		decision.Skip = true
