@@ -145,6 +145,74 @@ func TestSaveReferencesSkipsSourceNotInIndex(t *testing.T) {
 	}
 }
 
+func TestSaveLoadReferencesAmbiguousDeterministicAndPreserved(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "index.db")
+	store, err := NewIndexStore(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "a.go"), "package p\nfunc A(){}\nfunc B(){}\n")
+	idx := index.New()
+	if err := idx.Build(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	absRoot, _ := filepath.Abs(root)
+	if err := store.Save(context.Background(), idx, absRoot, "test", "test"); err != nil {
+		t.Fatal(err)
+	}
+
+	file := filepath.Join(absRoot, "a.go")
+	refs := index.NormalizeReferences([]domain.Reference{{
+		Source:     domain.SymbolRef{Name: "X", File: file, Line: 1, Language: "go", Kind: "type"},
+		Kind:       domain.ReferenceType,
+		Resolution: domain.ResolutionAmbiguous,
+		Language:   "go",
+		Location:   domain.Location{Path: file, StartLine: 1, StartColumn: 1},
+		Evidence: []domain.ReferenceEvidence{
+			{Kind: domain.EvidenceASTTypeReference, Ref: "a.go:1:1", Detail: "type ref X", Method: "ast"},
+			{Kind: domain.EvidenceHeuristicCandidate, Ref: "heuristic:A", Detail: "candidate A", Method: "heuristic"},
+		},
+		Candidates: []domain.SymbolRef{
+			{Name: "B", File: file, Line: 3, Language: "go", Kind: "function"},
+			{Name: "A", File: file, Line: 2, Language: "go", Kind: "function"},
+			{Name: "A", File: file, Line: 2, Language: "go", Kind: "function"},
+		},
+	}})
+	if err := store.SaveReferences(context.Background(), refs, absRoot); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		got, err := store.LoadReferences(context.Background(), absRoot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != 1 {
+			t.Fatalf("iter %d: len=%d", i, len(got))
+		}
+		if got[0].Resolution != domain.ResolutionAmbiguous {
+			t.Fatalf("iter %d: resolution=%q", i, got[0].Resolution)
+		}
+		if got[0].Target != nil {
+			t.Fatalf("iter %d: ambiguous must have nil target", i)
+		}
+		if len(got[0].Candidates) != 2 {
+			t.Fatalf("iter %d: candidates=%#v", i, got[0].Candidates)
+		}
+		if got[0].Candidates[0].Name != "A" || got[0].Candidates[1].Name != "B" {
+			t.Fatalf("iter %d: candidates not normalized/deterministic order: %#v", i, got[0].Candidates)
+		}
+		if len(got[0].Evidence) != 2 {
+			t.Fatalf("iter %d: evidence not preserved: %#v", i, got[0].Evidence)
+		}
+		if got[0].Location.Path == "" || got[0].Source.Name != "X" {
+			t.Fatalf("iter %d: identity lost: %#v", i, got[0])
+		}
+	}
+}
+
 func TestSaveLoadReferencesRelativePath(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "index.db")
 	store, err := NewIndexStore(dbPath)

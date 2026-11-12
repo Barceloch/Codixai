@@ -1,0 +1,8 @@
+{
+  "language": "typescript",
+  "category": "namespace_member",
+  "cases": [
+    {"file":"app.ts","name":"User","kind":"type","line":2,"expected_resolution":"resolved","expected_target_file":"models.ts","expected_target_name":"User","allow_any_line":true,"category":"namespace_member","note":"namespace-qualified type member resolves"},
+    {"file":"app.ts","name":"createUser","kind":"call","line":3,"expected_resolution":"resolved","expected_target_file":"models.ts","expected_target_name":"createUser","allow_any_line":true,"category":"namespace_member","note":"namespace member call resolves"}
+  ]
+}

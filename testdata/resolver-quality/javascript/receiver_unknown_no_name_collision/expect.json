@@ -1,0 +1,7 @@
+{
+  "language": "javascript",
+  "category": "name_collision_negative",
+  "cases": [
+    {"file":"a.js","name":"createUser","kind":"method","line":4,"expected_resolution":"dynamic","allow_any_line":true,"category":"name_collision_negative","note":"unknown receiver method must not resolve to local function by name coincidence"}
+  ]
+}

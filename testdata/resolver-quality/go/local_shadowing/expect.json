@@ -1,0 +1,7 @@
+{
+  "language": "go",
+  "category": "shadowing",
+  "cases": [
+    {"file":"a.go","name":"Helper","kind":"call","line":7,"expected_resolution":"dynamic","allow_any_line":true,"category":"shadowing","note":"local variable shadows package function; must not resolve call to package Helper"}
+  ]
+}

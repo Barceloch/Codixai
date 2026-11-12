@@ -1,0 +1,7 @@
+{
+  "language": "javascript",
+  "category": "alias",
+  "cases": [
+    {"file":"b.js","name":"build","kind":"call","line":2,"expected_resolution":"resolved","expected_target_file":"a.js","expected_target_name":"make","allow_any_line":true,"category":"alias","note":"aliased named import resolves to original export"}
+  ]
+}

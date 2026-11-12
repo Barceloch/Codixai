@@ -1,0 +1,7 @@
+{
+  "language": "javascript",
+  "category": "cross_file",
+  "cases": [
+    {"file":"app.js","name":"createUser","kind":"call","line":2,"expected_resolution":"resolved","expected_target_file":"users.js","expected_target_name":"createUser","allow_any_line":true,"category":"cross_file","note":"named import call resolved across files"}
+  ]
+}

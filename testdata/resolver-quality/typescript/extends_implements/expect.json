@@ -1,0 +1,8 @@
+{
+  "language": "typescript",
+  "category": "inheritance",
+  "cases": [
+    {"file":"a.ts","name":"User","kind":"inheritance","line":2,"expected_resolution":"resolved","expected_target_file":"a.ts","expected_target_name":"User","allow_any_line":true,"category":"inheritance","note":"interface extends"},
+    {"file":"a.ts","name":"User","kind":"inheritance","line":3,"expected_resolution":"resolved","expected_target_file":"a.ts","expected_target_name":"User","allow_any_line":true,"category":"inheritance","note":"class implements"}
+  ]
+}

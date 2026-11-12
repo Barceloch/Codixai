@@ -1,0 +1,7 @@
+{
+  "language": "python",
+  "category": "external_dependency",
+  "cases": [
+    {"file":"a.py","name":"requests","kind":"import","line":1,"expected_resolution":"external","allow_any_line":true,"category":"external_dependency","note":"external module import"}
+  ]
+}

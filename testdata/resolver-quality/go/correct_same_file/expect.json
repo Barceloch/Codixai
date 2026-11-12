@@ -1,0 +1,7 @@
+{
+  "language": "go",
+  "category": "correct_resolution",
+  "cases": [
+    {"file":"a.go","name":"Callee","kind":"call","line":3,"expected_resolution":"resolved","expected_target_file":"a.go","expected_target_name":"Callee","category":"correct_resolution","note":"same-file function call"}
+  ]
+}

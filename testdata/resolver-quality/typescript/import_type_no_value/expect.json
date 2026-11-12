@@ -1,0 +1,7 @@
+{
+  "language": "typescript",
+  "category": "type_value_separation",
+  "cases": [
+    {"file":"app.ts","name":"User","kind":"call","line":2,"expected_resolution":"unresolved","allow_any_line":true,"category":"type_value_separation","note":"import type binding must not resolve as runtime constructor"}
+  ]
+}

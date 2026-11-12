@@ -1,0 +1,16 @@
+{
+  "language": "python",
+  "category": "ambiguous_duplicate_function",
+  "cases": [
+    {
+      "file": "mod.py",
+      "name": "dup",
+      "kind": "call",
+      "expected_resolution": "ambiguous",
+      "min_candidates": 2,
+      "require_evidence": true,
+      "category": "ambiguous",
+      "note": "Two same-file function symbols share the same name; call resolution must preserve ambiguity with deterministic evidenced candidates instead of choosing arbitrarily."
+    }
+  ]
+}

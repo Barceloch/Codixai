@@ -1,0 +1,17 @@
+{
+  "language": "javascript",
+  "category": "negative_ambiguity_unique",
+  "cases": [
+    {
+      "file": "a.js",
+      "name": "helper",
+      "kind": "call",
+      "expected_resolution": "resolved",
+      "expected_target_file": "a.js",
+      "expected_target_name": "helper",
+      "require_evidence": true,
+      "category": "negative_ambiguity",
+      "note": "A unique same-file function declaration should resolve without ambiguity."
+    }
+  ]
+}

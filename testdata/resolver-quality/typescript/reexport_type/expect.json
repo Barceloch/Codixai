@@ -1,0 +1,7 @@
+{
+  "language": "typescript",
+  "category": "reexport",
+  "cases": [
+    {"file":"app.ts","name":"User","kind":"type","line":2,"expected_resolution":"resolved","expected_target_file":"base.ts","expected_target_name":"User","allow_any_line":true,"category":"reexport","note":"type reexport resolves to original interface"}
+  ]
+}

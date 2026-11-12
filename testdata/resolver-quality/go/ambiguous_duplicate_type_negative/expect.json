@@ -1,0 +1,18 @@
+{
+  "language": "go",
+  "category": "ambiguous_negative_same_package",
+  "cases": [
+    {
+      "file": "b.go",
+      "name": "Thing",
+      "kind": "type",
+      "expected_resolution": "resolved",
+      "expected_target_file": "b.go",
+      "expected_target_name": "Thing",
+      "expected_target": {"name":"Thing","file":"b.go","kind":"type","language":"go"},
+      "require_evidence": true,
+      "category": "negative_ambiguity",
+      "note": "A homonymous type exists in another package, but the same-file/same-package declaration uniquely determines the unqualified type reference; must not be ambiguous."
+    }
+  ]
+}

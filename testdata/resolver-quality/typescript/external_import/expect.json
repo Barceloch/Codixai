@@ -1,0 +1,7 @@
+{
+  "language": "typescript",
+  "category": "external_dependency",
+  "cases": [
+    {"file":"a.ts","name":"React","kind":"import","line":1,"expected_resolution":"external","allow_any_line":true,"category":"external_dependency","note":"external package import"}
+  ]
+}

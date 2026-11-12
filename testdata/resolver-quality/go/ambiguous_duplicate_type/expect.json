@@ -1,0 +1,20 @@
+{
+  "language": "go",
+  "category": "ambiguous_duplicate_type",
+  "cases": [
+    {
+      "file": "main.go",
+      "name": "Thing",
+      "kind": "type",
+      "expected_resolution": "ambiguous",
+      "expected_candidate_count": 2,
+      "expected_candidates": [
+        {"name": "Thing", "file": "a.go", "kind": "type", "language": "go"},
+        {"name": "Thing", "file": "b.go", "kind": "type", "language": "go"}
+      ],
+      "require_evidence": true,
+      "category": "ambiguous",
+      "note": "Unqualified type name matches two indexed type symbols in different packages; resolver must preserve ambiguity with deterministic evidenced candidates and no target."
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "language": "go",
+  "category": "nonexistent_symbol",
+  "cases": [
+    {"file":"a.go","name":"Missing","kind":"call","line":3,"expected_resolution":"unresolved","category":"nonexistent_symbol","note":"call to undefined symbol"}
+  ]
+}

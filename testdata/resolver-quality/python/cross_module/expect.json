@@ -1,0 +1,7 @@
+{
+  "language": "python",
+  "category": "cross_module",
+  "cases": [
+    {"file":"app.py","name":"hello","kind":"call","line":4,"expected_resolution":"resolved","expected_target_file":"pkg/util.py","expected_target_name":"hello","allow_any_line":true,"category":"cross_module","note":"from import resolved across modules"}
+  ]
+}

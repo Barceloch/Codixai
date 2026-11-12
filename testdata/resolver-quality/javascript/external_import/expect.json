@@ -1,0 +1,7 @@
+{
+  "language": "javascript",
+  "category": "external_dependency",
+  "cases": [
+    {"file":"a.js","name":"fs","kind":"import","line":1,"expected_resolution":"external","allow_any_line":true,"category":"external_dependency","note":"builtin/external import"}
+  ]
+}

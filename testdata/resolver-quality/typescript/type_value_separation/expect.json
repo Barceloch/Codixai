@@ -1,0 +1,8 @@
+{
+  "language": "typescript",
+  "category": "type_value_separation",
+  "cases": [
+    {"file":"a.ts","name":"UserService","kind":"type","line":2,"expected_resolution":"resolved","expected_target_file":"a.ts","expected_target_name":"UserService","allow_any_line":true,"category":"type_value_separation","note":"class usable as type"},
+    {"file":"a.ts","name":"UserService","kind":"call","line":2,"expected_resolution":"resolved","expected_target_file":"a.ts","expected_target_name":"UserService","allow_any_line":true,"category":"type_value_separation","note":"class usable as constructor/value"}
+  ]
+}

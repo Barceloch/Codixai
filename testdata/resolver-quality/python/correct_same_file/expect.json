@@ -1,0 +1,7 @@
+{
+  "language": "python",
+  "category": "correct_resolution",
+  "cases": [
+    {"file":"a.py","name":"callee","kind":"call","line":5,"expected_resolution":"resolved","expected_target_file":"a.py","expected_target_name":"callee","category":"correct_resolution","note":"same-file function call"}
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "language": "javascript",
+  "category": "ambiguous_duplicate_function",
+  "cases": [
+    {
+      "file": "a.js",
+      "name": "dup",
+      "kind": "call",
+      "expected_resolution": "ambiguous",
+      "min_candidates": 2,
+      "require_evidence": true,
+      "category": "ambiguous",
+      "note": "Duplicate same-file function declarations with the same name produce multiple plausible candidates; call resolution must remain ambiguous with deterministic evidenced candidates."
+    }
+  ]
+}

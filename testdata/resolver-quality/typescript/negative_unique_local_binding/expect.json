@@ -1,0 +1,17 @@
+{
+  "language": "typescript",
+  "category": "negative_ambiguity_unique",
+  "cases": [
+    {
+      "file": "a.ts",
+      "name": "helper",
+      "kind": "call",
+      "expected_resolution": "resolved",
+      "expected_target_file": "a.ts",
+      "expected_target_name": "helper",
+      "require_evidence": true,
+      "category": "negative_ambiguity",
+      "note": "A unique same-file function declaration should resolve without ambiguity in value space."
+    }
+  ]
+}

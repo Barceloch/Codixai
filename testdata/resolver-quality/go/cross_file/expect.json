@@ -1,0 +1,7 @@
+{
+  "language": "go",
+  "category": "cross_file",
+  "cases": [
+    {"file":"a.go","name":"Helper","kind":"call","line":3,"expected_resolution":"resolved","expected_target_file":"b.go","expected_target_name":"Helper","category":"cross_file","note":"same-package cross-file call"}
+  ]
+}

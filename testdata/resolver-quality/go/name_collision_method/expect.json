@@ -1,0 +1,7 @@
+{
+  "language": "go",
+  "category": "name_collision_negative",
+  "cases": [
+    {"file":"a.go","name":"Do","kind":"method","line":9,"expected_resolution":"resolved","expected_target_name":"Do","allow_any_line":true,"category":"name_collision_negative","note":"method call on known receiver should resolve to method, not package function"}
+  ]
+}

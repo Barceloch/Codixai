@@ -1,0 +1,7 @@
+{
+  "language": "python",
+  "category": "shadowing",
+  "cases": [
+    {"file":"a.py","name":"create_user","kind":"call","line":6,"expected_resolution":"dynamic","category":"shadowing","note":"local rebind shadows global function; must not resolve to global create_user"}
+  ]
+}

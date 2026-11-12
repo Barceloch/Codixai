@@ -1,0 +1,7 @@
+{
+  "language": "typescript",
+  "category": "type_value_separation",
+  "cases": [
+    {"file":"a.ts","name":"User","kind":"call","line":3,"expected_resolution":"unresolved","allow_any_line":true,"category":"type_value_separation","note":"interface must not resolve as runtime constructor/value"}
+  ]
+}

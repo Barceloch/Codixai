@@ -1,0 +1,7 @@
+{
+  "language": "javascript",
+  "category": "dynamic_reference",
+  "cases": [
+    {"file":"a.js","name":"m","kind":"method","line":2,"expected_resolution":"dynamic","allow_any_line":true,"category":"dynamic_reference","note":"unknown receiver member call is dynamic/conservative"}
+  ]
+}

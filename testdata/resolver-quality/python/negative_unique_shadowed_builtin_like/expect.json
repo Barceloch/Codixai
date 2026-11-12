@@ -1,0 +1,17 @@
+{
+  "language": "python",
+  "category": "negative_ambiguity_unique",
+  "cases": [
+    {
+      "file": "mod.py",
+      "name": "helper",
+      "kind": "call",
+      "expected_resolution": "resolved",
+      "expected_target_file": "mod.py",
+      "expected_target_name": "helper",
+      "require_evidence": true,
+      "category": "negative_ambiguity",
+      "note": "A unique same-file function declaration determines the call; no ambiguity should be reported."
+    }
+  ]
+}

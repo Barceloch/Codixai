@@ -1,0 +1,7 @@
+{
+  "language": "python",
+  "category": "name_collision_negative",
+  "cases": [
+    {"file":"a.py","name":"create_user","kind":"method","line":6,"expected_resolution":"dynamic","allow_any_line":true,"category":"name_collision_negative","note":"method on unknown receiver must not resolve to module function by name coincidence"}
+  ]
+}
