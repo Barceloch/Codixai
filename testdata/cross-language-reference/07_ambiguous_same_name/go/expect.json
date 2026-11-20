@@ -1,0 +1,23 @@
+{
+  "concept": "ambiguous_same_name",
+  "language": "go",
+  "comparability": "strictly_equivalent",
+  "justification": "When two equally plausible candidates exist for the same referenced name in scope, resolution must be ambiguous with preserved candidates and no arbitrary target. Invariant shared across languages.",
+  "cases": [
+    {
+      "file": "main.go",
+      "name": "Thing",
+      "kind": "type",
+      "expected_resolution": "ambiguous",
+      "min_candidates": 2,
+      "expected_candidate_count": 2,
+      "expected_candidates": [
+        {"name":"Thing","file":"a.go"},
+        {"name":"Thing","file":"b.go"}
+      ],
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Two types with same name in different packages produce ambiguity without arbitrary selection"
+    }
+  ]
+}

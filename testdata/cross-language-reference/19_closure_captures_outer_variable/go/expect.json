@@ -1,0 +1,18 @@
+{
+  "concept": "19_closure_captures_outer_variable",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "A closure captures a function-valued local from the enclosing function. A call through the captured local must not resolve to the same-named package-level function; the resolver abstains conservatively with evidence.",
+  "cases": [
+    {
+      "file": "a.go",
+      "name": "target",
+      "kind": "call",
+      "line": 7,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Call through captured outer local must not resolve to package-level target"
+    }
+  ]
+}

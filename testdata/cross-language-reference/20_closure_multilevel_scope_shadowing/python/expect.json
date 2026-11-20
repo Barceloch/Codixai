@@ -1,0 +1,18 @@
+{
+  "concept": "20_closure_multilevel_scope_shadowing",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "Python scope lookup uses the nearest enclosing function binding. A call through the multi-level local must not resolve to the module-level function.",
+  "cases": [
+    {
+      "file": "a.py",
+      "name": "target",
+      "kind": "call",
+      "line": 9,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Nearest-level local target shadows outer and module-level names"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "concept": "type_reference",
+  "language": "javascript",
+  "comparability": "non_comparable",
+  "justification": "Plain JavaScript does not provide static type annotation positions equivalent to Go/Python/TypeScript in this concept; explicit type-reference emission is not a comparable invariant for this fixture.",
+  "cases": []
+}

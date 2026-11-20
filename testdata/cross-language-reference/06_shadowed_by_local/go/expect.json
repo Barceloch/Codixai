@@ -1,0 +1,9 @@
+{
+  "concept": "shadowed_by_local",
+  "language": "go",
+  "comparability": "language_specific",
+  "justification": "A local name shadowing an outer symbol must not be incorrectly resolved to the outer declaration. Go represents this conservative abstention as dynamic with evidence; other languages may use different non-resolved states.",
+  "cases": [
+    {"file":"a.go","name":"Helper","kind":"call","line":7,"expected_resolution":"dynamic","require_evidence":true,"note":"Call to locally shadowed name is classified dynamic, not resolved to outer function"}
+  ]
+}

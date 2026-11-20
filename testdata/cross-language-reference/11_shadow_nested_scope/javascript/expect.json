@@ -1,0 +1,7 @@
+{
+  "concept": "shadow_nested_scope",
+  "language": "javascript",
+  "comparability": "language_specific",
+  "justification": "Nested/local shadowing must not resolve a call to an outer module symbol. The JavaScript lexical resolver conservatively avoids emitting incorrect outer-resolution references for these shadowed local calls (no refs emitted), satisfying the shared non-misresolution invariant.",
+  "cases": []
+}

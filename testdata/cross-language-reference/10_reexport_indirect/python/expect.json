@@ -1,0 +1,7 @@
+{
+  "concept": "reexport_indirect",
+  "language": "python",
+  "comparability": "non_comparable",
+  "justification": "Python module re-export conventions differ from JS/TS ESM re-exports and are not directly comparable in this resolver concept.",
+  "cases": []
+}

@@ -1,0 +1,9 @@
+{
+  "concept": "dynamic_dispatch",
+  "language": "typescript",
+  "comparability": "language_specific",
+  "justification": "Computed property access/member calls are not statically provable in general. The TypeScript resolver emits a conservative dynamic method reference for the computed-call receiver with evidence.",
+  "cases": [
+    {"file":"a.ts","name":"obj","kind":"method","line":2,"expected_resolution":"dynamic","require_evidence":true,"note":"Computed bracket call represented as dynamic method reference on receiver"}
+  ]
+}

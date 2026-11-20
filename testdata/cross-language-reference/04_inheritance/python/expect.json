@@ -1,0 +1,9 @@
+{
+  "concept": "inheritance",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "Python explicitly represents class base references as inheritance references. Shared concept (where supported): base/parent type identifier resolves to its declaration.",
+  "cases": [
+    {"file":"a.py","name":"Base","kind":"inheritance","line":4,"expected_resolution":"resolved","expected_target_file":"a.py","expected_target_name":"Base","require_evidence":true,"allow_any_line":true,"note":"Class base resolves as inheritance reference"}
+  ]
+}

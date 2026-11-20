@@ -1,0 +1,9 @@
+{
+  "concept": "imported_symbol_call",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "Go resolves same-package cross-file symbols without an explicit import statement, while other languages use explicit module imports. The shared invariant is that a call to an externally-declared but locally-resolvable symbol resolves to the correct unique target with evidence.",
+  "cases": [
+    {"file":"a.go","name":"Helper","kind":"call","line":4,"expected_resolution":"resolved","expected_target_file":"util.go","expected_target_name":"Helper","require_evidence":true,"note":"Cross-file same-package call resolves to declared symbol"}
+  ]
+}

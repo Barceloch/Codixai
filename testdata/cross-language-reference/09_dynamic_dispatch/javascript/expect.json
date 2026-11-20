@@ -1,0 +1,7 @@
+{
+  "concept": "dynamic_dispatch",
+  "language": "javascript",
+  "comparability": "language_specific",
+  "justification": "Computed/bracket member calls are not statically provable in general. The JavaScript lexical resolver does not emit a comparable named reference for this bracket-call form; this is a conservative limitation (no incorrect resolved target) rather than a resolved dispatch.",
+  "cases": []
+}

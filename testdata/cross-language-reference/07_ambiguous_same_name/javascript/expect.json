@@ -1,0 +1,18 @@
+{
+  "concept": "ambiguous_same_name",
+  "language": "javascript",
+  "comparability": "strictly_equivalent",
+  "justification": "When multiple plausible candidates share the same referenced name, resolution must be ambiguous with preserved candidates and no arbitrary target.",
+  "cases": [
+    {
+      "file": "a.js",
+      "name": "dup",
+      "kind": "call",
+      "expected_resolution": "ambiguous",
+      "min_candidates": 2,
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Duplicate same-name function declarations produce ambiguous call resolution"
+    }
+  ]
+}

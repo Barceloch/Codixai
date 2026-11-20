@@ -1,0 +1,10 @@
+{
+  "concept": "shadow_nested_scope",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "Nested/local shadowing must not resolve a call to an outer module symbol. Go reports conservative dynamic references with evidence for shadowed local-variable calls; scope nesting is respected by abstention (no resolved outer target).",
+  "cases": [
+    {"file":"a.go","name":"helper","kind":"call","line":9,"expected_resolution":"dynamic","require_evidence":true,"note":"Call inside nested block uses nested local shadow; must not resolve to module-level helper"},
+    {"file":"a.go","name":"helper","kind":"call","line":11,"expected_resolution":"dynamic","require_evidence":true,"note":"Call in outer function uses function-local shadow; must not resolve to module-level helper"}
+  ]
+}

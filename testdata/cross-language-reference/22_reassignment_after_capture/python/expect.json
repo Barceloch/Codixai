@@ -1,0 +1,18 @@
+{
+  "concept": "22_reassignment_after_capture",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "A captured binding is reassigned after the closure is created. The resolver must not resolve the call to the initial function value.",
+  "cases": [
+    {
+      "file": "a.py",
+      "name": "fn",
+      "kind": "call",
+      "line": 10,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Call through a reassigned captured local must not resolve to old_fn"
+    }
+  ]
+}

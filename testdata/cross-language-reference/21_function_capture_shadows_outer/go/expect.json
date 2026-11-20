@@ -1,0 +1,18 @@
+{
+  "concept": "21_function_capture_shadows_outer",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "A local function value shadows the package-level function inside the closure; the call must not resolve to the outer symbol.",
+  "cases": [
+    {
+      "file": "a.go",
+      "name": "target",
+      "kind": "call",
+      "line": 8,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Local closure binding shadows package-level target"
+    }
+  ]
+}

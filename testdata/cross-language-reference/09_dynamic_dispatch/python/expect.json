@@ -1,0 +1,9 @@
+{
+  "concept": "dynamic_dispatch",
+  "language": "python",
+  "comparability": "language_specific",
+  "justification": "Dynamic builtins like getattr make the target unprovable statically. Python resolver classifies such calls as dynamic with evidence.",
+  "cases": [
+    {"file":"a.py","name":"getattr","kind":"call","line":2,"expected_resolution":"dynamic","require_evidence":true,"allow_any_line":true,"note":"getattr call is treated as dynamic dispatch"}
+  ]
+}

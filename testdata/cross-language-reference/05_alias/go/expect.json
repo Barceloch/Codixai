@@ -1,0 +1,9 @@
+{
+  "concept": "alias",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "An aliased import name should bind references to the imported module/package target. External stdlib calls are classified as external; invariant is evidence-backed, non-speculative handling of aliased import usage.",
+  "cases": [
+    {"file":"a.go","name":"Println","kind":"call","line":5,"expected_resolution":"external","require_evidence":true,"allow_any_line":true,"note":"Aliased stdlib package selector call classified external with evidence"}
+  ]
+}

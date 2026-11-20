@@ -1,0 +1,30 @@
+{
+  "concept": "25_javascript_hoisting_var_shadowing",
+  "language": "typescript",
+  "comparability": "language_specific",
+  "justification": "TypeScript inherits JavaScript hoisting and TDZ semantics. The resolver conservatively reports ambiguity between same-named symbols instead of resolving to the outer function.",
+  "cases": [
+    {
+      "file": "a.ts",
+      "name": "target",
+      "kind": "call",
+      "line": 3,
+      "expected_resolution": "ambiguous",
+      "min_candidates": 2,
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "var-hoisted local target shadows the global; conservative ambiguity"
+    },
+    {
+      "file": "b.ts",
+      "name": "target",
+      "kind": "call",
+      "line": 4,
+      "expected_resolution": "ambiguous",
+      "min_candidates": 2,
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "let TDZ binding must not resolve to the outer function; conservative ambiguity"
+    }
+  ]
+}

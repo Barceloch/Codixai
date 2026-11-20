@@ -1,0 +1,9 @@
+{
+  "concept": "module_ambiguous_import",
+  "language": "javascript",
+  "comparability": "approximately_equivalent",
+  "justification": "When a module specifier resolves ambiguously to multiple local candidates, the resolver must not choose arbitrarily. JavaScript reports the import reference as ambiguous with evidence (module-level ambiguity may not expose symbol candidates).",
+  "cases": [
+    {"file":"a.js","name":"x","kind":"import","line":1,"expected_resolution":"ambiguous","require_evidence":true,"allow_any_line":true,"note":"Ambiguous module specifier must not resolve to an arbitrary file"}
+  ]
+}

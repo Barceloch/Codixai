@@ -1,0 +1,39 @@
+{
+  "concept": "24_python_global_nonlocal_distinction",
+  "language": "python",
+  "comparability": "language_specific",
+  "justification": "Python distinguishes global and nonlocal bindings. A nonlocal call through a captured local must not resolve to the module-level function, while a global call resolves to the module binding.",
+  "cases": [
+    {
+      "file": "a.py",
+      "name": "handler",
+      "kind": "call",
+      "line": 8,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "note": "nonlocal handler refers to the captured local, not the module function"
+    },
+    {
+      "file": "a.py",
+      "name": "handler",
+      "kind": "call",
+      "line": 13,
+      "expected_resolution": "resolved",
+      "expected_target_file": "a.py",
+      "expected_target_name": "handler",
+      "require_evidence": true,
+      "note": "global handler resolves to the module-level function"
+    },
+    {
+      "file": "a.py",
+      "name": "inner",
+      "kind": "call",
+      "line": 9,
+      "expected_resolution": "resolved",
+      "expected_target_file": "a.py",
+      "expected_target_name": "inner",
+      "require_evidence": true,
+      "note": "nested function call resolves to its declaration"
+    }
+  ]
+}

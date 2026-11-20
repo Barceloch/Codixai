@@ -1,0 +1,9 @@
+{
+  "concept": "shadowed_by_local",
+  "language": "python",
+  "comparability": "language_specific",
+  "justification": "A local rebinding/shadowing must not resolve to the outer declaration. Python resolver conservatively treats calls through local variables as dynamic in this model.",
+  "cases": [
+    {"file":"a.py","name":"helper","kind":"call","line":6,"expected_resolution":"dynamic","require_evidence":true,"allow_any_line":true,"note":"Call through locally rebound name is treated as dynamic, not resolved to outer function"}
+  ]
+}

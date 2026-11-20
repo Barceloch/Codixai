@@ -1,0 +1,19 @@
+{
+  "concept": "direct_function_reference",
+  "language": "typescript",
+  "comparability": "strictly_equivalent",
+  "justification": "A direct call to a function declared in the same module scope should resolve to that unique declaration when unshadowed. Invariant: resolved, non-ambiguous, evidence-backed target.",
+  "cases": [
+    {
+      "file": "a.ts",
+      "name": "helper",
+      "kind": "call",
+      "line": 4,
+      "expected_resolution": "resolved",
+      "expected_target_file": "a.ts",
+      "expected_target_name": "helper",
+      "require_evidence": true,
+      "note": "Same-file direct function call resolves to local function"
+    }
+  ]
+}

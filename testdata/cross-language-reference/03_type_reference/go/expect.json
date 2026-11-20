@@ -1,0 +1,9 @@
+{
+  "concept": "type_reference",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "Go emits explicit type references from type positions in declarations/signatures. Shared concept: a type name used in a type position can be resolved to its declaration with evidence when uniquely identifiable.",
+  "cases": [
+    {"file":"a.go","name":"User","kind":"type","line":5,"expected_resolution":"resolved","expected_target_file":"a.go","expected_target_name":"User","require_evidence":true,"note":"Parameter type reference resolves to declared type"}
+  ]
+}

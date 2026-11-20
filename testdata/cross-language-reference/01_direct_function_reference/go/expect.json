@@ -1,0 +1,19 @@
+{
+  "concept": "direct_function_reference",
+  "language": "go",
+  "comparability": "strictly_equivalent",
+  "justification": "A direct call to a function declared in the same file/module scope should resolve to that unique local declaration when no shadowing/ambiguity exists. Invariant: resolved, non-ambiguous, evidence-backed target.",
+  "cases": [
+    {
+      "file": "a.go",
+      "name": "Helper",
+      "kind": "call",
+      "line": 6,
+      "expected_resolution": "resolved",
+      "expected_target_file": "a.go",
+      "expected_target_name": "Helper",
+      "require_evidence": true,
+      "note": "Same-file direct function call resolves to local function"
+    }
+  ]
+}

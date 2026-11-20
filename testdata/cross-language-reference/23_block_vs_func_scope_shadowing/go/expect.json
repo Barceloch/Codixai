@@ -1,0 +1,18 @@
+{
+  "concept": "23_block_vs_func_scope_shadowing",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "A block-local declaration shadows the package-level function inside its block. The resolver must not resolve the call to the outer symbol (block scoping is conservatively flattened; abstention is acceptable).",
+  "cases": [
+    {
+      "file": "a.go",
+      "name": "target",
+      "kind": "call",
+      "line": 8,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Block-local target must not resolve to package-level target"
+    }
+  ]
+}

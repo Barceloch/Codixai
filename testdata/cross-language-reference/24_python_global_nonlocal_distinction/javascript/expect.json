@@ -1,0 +1,7 @@
+{
+  "concept": "24_python_global_nonlocal_distinction",
+  "language": "javascript",
+  "comparability": "non_comparable",
+  "justification": "Python's global/nonlocal binding keywords have no direct equivalent in this resolver model for the other languages.",
+  "cases": []
+}

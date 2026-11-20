@@ -1,0 +1,7 @@
+{
+  "concept": "computed_indirect_dispatch",
+  "language": "javascript",
+  "comparability": "language_specific",
+  "justification": "Computed bracket member calls are not statically provable in general. The JavaScript lexical resolver does not emit a comparable named reference for this bracket-call form (conservative non-emission, no incorrect resolved target).",
+  "cases": []
+}

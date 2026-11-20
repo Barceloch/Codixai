@@ -1,0 +1,19 @@
+{
+  "concept": "direct_function_reference",
+  "language": "python",
+  "comparability": "strictly_equivalent",
+  "justification": "A direct call to a function defined in the same module should resolve to that unique declaration when unshadowed. Invariant: resolved, non-ambiguous, evidence-backed target.",
+  "cases": [
+    {
+      "file": "a.py",
+      "name": "helper",
+      "kind": "call",
+      "line": 6,
+      "expected_resolution": "resolved",
+      "expected_target_file": "a.py",
+      "expected_target_name": "helper",
+      "require_evidence": true,
+      "note": "Same-module direct function call resolves to local function"
+    }
+  ]
+}

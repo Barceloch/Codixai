@@ -1,0 +1,9 @@
+{
+  "concept": "alias",
+  "language": "javascript",
+  "comparability": "approximately_equivalent",
+  "justification": "An aliased named import should resolve to the exported symbol in the target module. Shared invariant: unique resolved target with evidence.",
+  "cases": [
+    {"file":"a.js","name":"h","kind":"call","line":2,"expected_resolution":"resolved","expected_target_file":"util.js","expected_target_name":"helper","require_evidence":true,"allow_any_line":true,"note":"Aliased import call resolves to exported target"}
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "concept": "shadow_import_binding_local",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "A local variable shadowing an imported package alias must not cause a selector call to resolve to the imported package symbol. The Go resolver abstains conservatively (unresolved method on local receiver) with evidence.",
+  "cases": [
+    {"file":"a.go","name":"Run","kind":"method","line":7,"expected_resolution":"unresolved","require_evidence":true,"allow_any_line":true,"note":"Selector call on locally shadowed package alias must not resolve to imported package function"}
+  ]
+}

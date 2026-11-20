@@ -1,0 +1,9 @@
+{
+  "concept": "dynamic_dispatch",
+  "language": "go",
+  "comparability": "language_specific",
+  "justification": "Interface/dynamic receiver dispatch cannot be statically resolved to a concrete implementation in this context. Go resolver abstains conservatively (unresolved/dynamic depending on path) with evidence; triggers differ by language.",
+  "cases": [
+    {"file":"a.go","name":"M","kind":"method","line":5,"expected_resolution":"unresolved","require_evidence":true,"allow_any_line":true,"note":"Method call on interface receiver is conservatively not resolved to a concrete target"}
+  ]
+}

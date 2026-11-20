@@ -1,0 +1,11 @@
+{
+  "concept": "ts_type_value_separation",
+  "language": "typescript",
+  "comparability": "language_specific",
+  "justification": "TypeScript distinguishes type and value spaces. Interface/type references must resolve in type space; type-only imports must remain type-space bindings and not be usable as runtime values. This case documents current resolver behavior for type references and type-only import bindings without simulating a full type checker.",
+  "cases": [
+    {"file":"a.ts","name":"User","kind":"type","line":5,"expected_resolution":"resolved","expected_target_file":"a.ts","expected_target_name":"User","require_evidence":true,"allow_any_line":true,"note":"Interface used as type annotation resolves as type reference"},
+    {"file":"b.ts","name":"Config","kind":"type","line":1,"expected_resolution":"resolved","expected_target_file":"types.ts","expected_target_name":"Config","require_evidence":true,"allow_any_line":true,"note":"Type-only import binding resolves as type-space reference"},
+    {"file":"b.ts","name":"Config","kind":"type","line":3,"expected_resolution":"resolved","expected_target_file":"types.ts","expected_target_name":"Config","require_evidence":true,"allow_any_line":true,"note":"Type-only imported symbol used in type annotation resolves to interface in type space"}
+  ]
+}

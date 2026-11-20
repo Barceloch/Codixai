@@ -1,0 +1,30 @@
+{
+  "concept": "25_javascript_hoisting_var_shadowing",
+  "language": "javascript",
+  "comparability": "language_specific",
+  "justification": "A var declaration is hoisted to the function scope and a let declaration introduces a temporal dead zone in its block. The resolver conservatively reports ambiguity between same-named symbols instead of resolving to the outer function.",
+  "cases": [
+    {
+      "file": "a.js",
+      "name": "target",
+      "kind": "call",
+      "line": 3,
+      "expected_resolution": "ambiguous",
+      "min_candidates": 2,
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "var-hoisted local target shadows the global; conservative ambiguity"
+    },
+    {
+      "file": "b.js",
+      "name": "target",
+      "kind": "call",
+      "line": 4,
+      "expected_resolution": "ambiguous",
+      "min_candidates": 2,
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "let TDZ binding must not resolve to the outer function; conservative ambiguity"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "concept": "20_closure_multilevel_scope_shadowing",
+  "language": "javascript",
+  "comparability": "language_specific",
+  "justification": "The JavaScript lexical resolver emits no comparable reference for the multi-level shadowed call; no incorrect outer/package resolution is produced.",
+  "cases": []
+}

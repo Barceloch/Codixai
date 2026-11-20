@@ -1,0 +1,9 @@
+{
+  "concept": "external_reference",
+  "language": "go",
+  "comparability": "strictly_equivalent",
+  "justification": "References to symbols from external/stdlib dependencies not indexed as local project targets must be classified as external with evidence, not as resolved local targets.",
+  "cases": [
+    {"file":"a.go","name":"Println","kind":"call","line":5,"expected_resolution":"external","require_evidence":true,"allow_any_line":true,"note":"Stdlib selector call classified external"}
+  ]
+}

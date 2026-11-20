@@ -1,0 +1,18 @@
+{
+  "concept": "22_reassignment_after_capture",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "A captured binding is reassigned after the closure is created. The resolver must keep the binding identity but must not claim which function value is invoked; it abstains conservatively.",
+  "cases": [
+    {
+      "file": "a.go",
+      "name": "fn",
+      "kind": "call",
+      "line": 8,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Call through a reassigned captured local must not resolve to oldFn"
+    }
+  ]
+}

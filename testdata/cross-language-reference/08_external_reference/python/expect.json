@@ -1,0 +1,9 @@
+{
+  "concept": "external_reference",
+  "language": "python",
+  "comparability": "strictly_equivalent",
+  "justification": "References to third-party/external modules not present in the indexed project must be classified as external with evidence.",
+  "cases": [
+    {"file":"a.py","name":"requests","kind":"import","line":1,"expected_resolution":"external","require_evidence":true,"allow_any_line":true,"note":"Third-party import classified external"}
+  ]
+}

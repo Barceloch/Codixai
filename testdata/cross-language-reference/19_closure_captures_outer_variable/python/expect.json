@@ -1,0 +1,18 @@
+{
+  "concept": "19_closure_captures_outer_variable",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "A nested function calls a function value captured from the enclosing function scope. The call must not resolve to the same-named module-level function; Python reports a conservative dynamic reference with evidence.",
+  "cases": [
+    {
+      "file": "a.py",
+      "name": "target",
+      "kind": "call",
+      "line": 7,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Call through captured outer local must not resolve to module-level target"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "concept": "reexport_indirect",
+  "language": "go",
+  "comparability": "non_comparable",
+  "justification": "Go does not have JavaScript/TypeScript-style module re-export syntax; indirect exposure follows package semantics, not comparable as reexport references.",
+  "cases": []
+}

@@ -1,0 +1,18 @@
+{
+  "concept": "23_block_vs_func_scope_shadowing",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "Python has no block scope: the assignment inside the conditional makes target function-local, so the call must not resolve to the module-level function. This is a documented language difference.",
+  "cases": [
+    {
+      "file": "a.py",
+      "name": "target",
+      "kind": "call",
+      "line": 7,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Function-local binding (assignment in if) shadows module target"
+    }
+  ]
+}

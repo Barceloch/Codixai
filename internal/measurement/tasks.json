@@ -1,0 +1,35 @@
+{
+  "schema_version": "0.1",
+  "tasks": [
+    {
+      "id": "investigate_symbol",
+      "kind": "investigate_symbol",
+      "description": "Investigate a symbol and its incoming/outgoing references and related tests.",
+      "repository": "codixai"
+    },
+    {
+      "id": "find_callers",
+      "kind": "find_callers",
+      "description": "Find all callers of a named function or method.",
+      "repository": "codixai"
+    },
+    {
+      "id": "analyze_change",
+      "kind": "analyze_change",
+      "description": "Analyze a base revision diff: changed symbols, their references and affected tests.",
+      "repository": "codixai"
+    },
+    {
+      "id": "investigate_finding",
+      "kind": "investigate_finding",
+      "description": "Investigate a rule finding: rule support, related symbols and evidence.",
+      "repository": "codixai"
+    },
+    {
+      "id": "review_diff",
+      "kind": "review_diff",
+      "description": "Review a diff: changed files, impacted symbols and claim risks.",
+      "repository": "codixai"
+    }
+  ]
+}

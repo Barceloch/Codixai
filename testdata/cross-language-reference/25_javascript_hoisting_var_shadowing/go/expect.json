@@ -1,0 +1,7 @@
+{
+  "concept": "25_javascript_hoisting_var_shadowing",
+  "language": "go",
+  "comparability": "non_comparable",
+  "justification": "JavaScript/TypeScript hoisting and Temporal Dead Zone semantics have no direct equivalent in Go or Python scope resolution.",
+  "cases": []
+}

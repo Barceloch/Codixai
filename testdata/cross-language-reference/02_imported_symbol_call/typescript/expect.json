@@ -1,0 +1,9 @@
+{
+  "concept": "imported_symbol_call",
+  "language": "typescript",
+  "comparability": "approximately_equivalent",
+  "justification": "TypeScript resolves an explicitly imported symbol from a relative module via module-graph resolution. Shared invariant: correct unique resolved target with evidence.",
+  "cases": [
+    {"file":"app.ts","name":"helper","kind":"call","line":4,"expected_resolution":"resolved","expected_target_file":"util.ts","expected_target_name":"helper","require_evidence":true,"allow_any_line":true,"note":"Imported function call resolves to exported declaration"}
+  ]
+}

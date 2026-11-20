@@ -1,0 +1,9 @@
+{
+  "concept": "inheritance",
+  "language": "javascript",
+  "comparability": "language_specific",
+  "justification": "JavaScript supports class extends but inheritance may be represented differently than explicit ReferenceInheritance in other resolvers. This case documents language-specific behavior rather than enforcing identical kind/state across all languages.",
+  "cases": [
+    {"file":"a.js","name":"Base","kind":"type","line":2,"expected_resolution":"resolved","expected_target_file":"a.js","expected_target_name":"Base","require_evidence":true,"allow_any_line":true,"note":"Extends base class resolves to declared class (kind/state may differ from other languages)"}
+  ]
+}

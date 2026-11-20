@@ -1,0 +1,9 @@
+{
+  "concept": "imported_symbol_call",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "Python resolves an explicitly imported symbol from another module. The shared invariant is resolution to the correct unique imported target with evidence when the module/symbol is locally indexed.",
+  "cases": [
+    {"file":"app.py","name":"helper","kind":"call","line":4,"expected_resolution":"resolved","expected_target_file":"pkg.py","expected_target_name":"helper","require_evidence":true,"note":"Imported function call resolves to module definition"}
+  ]
+}

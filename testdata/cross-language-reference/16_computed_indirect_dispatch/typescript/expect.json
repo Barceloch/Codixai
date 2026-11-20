@@ -1,0 +1,9 @@
+{
+  "concept": "computed_indirect_dispatch",
+  "language": "typescript",
+  "comparability": "language_specific",
+  "justification": "Computed bracket member calls are not statically provable in general. The TypeScript resolver emits a conservative dynamic method reference on the receiver with evidence.",
+  "cases": [
+    {"file":"a.ts","name":"obj","kind":"method","line":2,"expected_resolution":"dynamic","require_evidence":true,"allow_any_line":true,"note":"Computed bracket call represented as dynamic method reference on receiver"}
+  ]
+}

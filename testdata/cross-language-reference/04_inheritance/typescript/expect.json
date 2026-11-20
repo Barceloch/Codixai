@@ -1,0 +1,9 @@
+{
+  "concept": "inheritance",
+  "language": "typescript",
+  "comparability": "approximately_equivalent",
+  "justification": "TypeScript represents extends/implements heritage as inheritance/type references in type space. Shared concept (where supported): inherited/implemented type resolves to declaration.",
+  "cases": [
+    {"file":"a.ts","name":"Base","kind":"inheritance","line":2,"expected_resolution":"resolved","expected_target_file":"a.ts","expected_target_name":"Base","require_evidence":true,"allow_any_line":true,"note":"Implements clause resolves to interface declaration"}
+  ]
+}

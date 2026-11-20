@@ -1,0 +1,7 @@
+{
+  "concept": "22_reassignment_after_capture",
+  "language": "typescript",
+  "comparability": "language_specific",
+  "justification": "The TypeScript lexical resolver emits no comparable reference for the reassigned captured call; no stale value is claimed.",
+  "cases": []
+}

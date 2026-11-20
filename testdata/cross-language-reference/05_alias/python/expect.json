@@ -1,0 +1,9 @@
+{
+  "concept": "alias",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "An aliased module import binds attribute access through the alias to the module. Depending on index/external classification, resolution may be external or unresolved; invariant is evidence-backed non-speculative handling.",
+  "cases": [
+    {"file":"a.py","name":"getcwd","kind":"call","line":4,"expected_resolution":"external","require_evidence":true,"allow_any_line":true,"note":"Aliased stdlib module attribute call treated as external (evidence-backed)"}
+  ]
+}

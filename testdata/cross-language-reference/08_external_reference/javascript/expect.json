@@ -1,0 +1,9 @@
+{
+  "concept": "external_reference",
+  "language": "javascript",
+  "comparability": "strictly_equivalent",
+  "justification": "Non-relative package imports not resolvable to local indexed files are classified as external via module resolution with evidence.",
+  "cases": [
+    {"file":"a.js","name":"_","kind":"import","line":1,"expected_resolution":"external","require_evidence":true,"allow_any_line":true,"note":"External package import classified external"}
+  ]
+}

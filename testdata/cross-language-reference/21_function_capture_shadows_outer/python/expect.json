@@ -1,0 +1,18 @@
+{
+  "concept": "21_function_capture_shadows_outer",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "A local function value shadows the module-level function inside the nested function; the call must not resolve to the outer symbol.",
+  "cases": [
+    {
+      "file": "a.py",
+      "name": "target",
+      "kind": "call",
+      "line": 7,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Local binding shadows module-level target"
+    }
+  ]
+}

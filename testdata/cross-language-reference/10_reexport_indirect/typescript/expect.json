@@ -1,0 +1,9 @@
+{
+  "concept": "reexport_indirect",
+  "language": "typescript",
+  "comparability": "strictly_equivalent",
+  "justification": "A symbol imported through an intermediate re-exporting module should resolve to the original exported declaration when module resolution is unambiguous. Shared invariant (JS/TS): evidence-backed resolved target without guessing.",
+  "cases": [
+    {"file":"app.ts","name":"helper","kind":"call","line":2,"expected_resolution":"resolved","expected_target_file":"base.ts","expected_target_name":"helper","require_evidence":true,"allow_any_line":true,"note":"Call resolves through re-export chain to original declaration"}
+  ]
+}

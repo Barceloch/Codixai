@@ -1,0 +1,9 @@
+{
+  "concept": "member_unknown_receiver_no_coincidence",
+  "language": "javascript",
+  "comparability": "approximately_equivalent",
+  "justification": "A method call on an unknown receiver must not be resolved to a same-named method of an unrelated class by name coincidence alone. JavaScript abstains conservatively (dynamic) with evidence.",
+  "cases": [
+    {"file":"a.js","name":"create","kind":"method","line":2,"expected_resolution":"dynamic","require_evidence":true,"allow_any_line":true,"note":"Method call on unknown receiver parameter must not resolve to UserService.create by name coincidence"}
+  ]
+}

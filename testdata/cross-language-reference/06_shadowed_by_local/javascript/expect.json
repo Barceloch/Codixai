@@ -1,0 +1,7 @@
+{
+  "concept": "shadowed_by_local",
+  "language": "javascript",
+  "comparability": "language_specific",
+  "justification": "A parameter shadowing an outer symbol must not resolve incorrectly to the outer declaration. The JavaScript resolver conservatively avoids emitting an incorrect outer-resolution reference for this shadowed call (no ref emitted), satisfying the shared non-misresolution invariant.",
+  "cases": []
+}

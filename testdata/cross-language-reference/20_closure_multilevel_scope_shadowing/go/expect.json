@@ -1,0 +1,18 @@
+{
+  "concept": "20_closure_multilevel_scope_shadowing",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "A call inside a nested closure must bind to the nearest enclosing local with that name (intermediate scope), not to the package-level function or an outer local. The resolver abstains conservatively when the exact function value cannot be proven.",
+  "cases": [
+    {
+      "file": "a.go",
+      "name": "target",
+      "kind": "call",
+      "line": 9,
+      "expected_resolution": "dynamic",
+      "require_evidence": true,
+      "allow_any_line": true,
+      "note": "Nearest-level local target shadows outer and package-level names"
+    }
+  ]
+}

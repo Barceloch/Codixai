@@ -1,0 +1,7 @@
+{
+  "concept": "inheritance",
+  "language": "go",
+  "comparability": "language_specific",
+  "justification": "Go uses embedding/interfaces rather than class inheritance; resolvers do not emit explicit ReferenceInheritance for this construct. Not directly comparable as inheritance-kind reference.",
+  "cases": []
+}

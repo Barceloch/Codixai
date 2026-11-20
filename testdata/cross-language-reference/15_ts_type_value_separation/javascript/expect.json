@@ -1,0 +1,7 @@
+{
+  "concept": "ts_type_value_separation",
+  "language": "javascript",
+  "comparability": "non_comparable",
+  "justification": "Type/value space separation as modeled in TypeScript (type-only imports, interfaces, type aliases) is TypeScript-specific and not directly comparable to JavaScript.",
+  "cases": []
+}

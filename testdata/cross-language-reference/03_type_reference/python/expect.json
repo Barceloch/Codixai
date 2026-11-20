@@ -1,0 +1,9 @@
+{
+  "concept": "type_reference",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "Python resolvers emit type references from annotations/bases where recognized. Shared concept: a referenced type name can resolve to a known declaration with evidence.",
+  "cases": [
+    {"file":"a.py","name":"User","kind":"type","line":4,"expected_resolution":"resolved","expected_target_file":"a.py","expected_target_name":"User","require_evidence":true,"allow_any_line":true,"note":"Annotation type reference resolves to declared class/type symbol"}
+  ]
+}

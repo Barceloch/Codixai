@@ -1,0 +1,9 @@
+{
+  "concept": "imported_symbol_call",
+  "language": "javascript",
+  "comparability": "approximately_equivalent",
+  "justification": "JavaScript resolves an explicitly imported ESM symbol from a relative module via module-graph resolution. Shared invariant: correct unique resolved target with evidence.",
+  "cases": [
+    {"file":"app.js","name":"helper","kind":"call","line":4,"expected_resolution":"resolved","expected_target_file":"util.js","expected_target_name":"helper","require_evidence":true,"allow_any_line":true,"note":"Imported ESM function call resolves to exported declaration"}
+  ]
+}

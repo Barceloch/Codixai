@@ -1,0 +1,9 @@
+{
+  "concept": "type_reference",
+  "language": "typescript",
+  "comparability": "approximately_equivalent",
+  "justification": "TypeScript emits type-space references from annotations/heritage in a type-aware manner. Shared concept: type identifier resolves to declared type with evidence.",
+  "cases": [
+    {"file":"a.ts","name":"User","kind":"type","line":2,"expected_resolution":"resolved","expected_target_file":"a.ts","expected_target_name":"User","require_evidence":true,"allow_any_line":true,"note":"Annotation type reference resolves to declared interface in type space"}
+  ]
+}

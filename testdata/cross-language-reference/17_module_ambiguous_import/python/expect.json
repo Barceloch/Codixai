@@ -1,0 +1,7 @@
+{
+  "concept": "module_ambiguous_import",
+  "language": "python",
+  "comparability": "non_comparable",
+  "justification": "Module path ambiguity in this form (multiple files matching a single extensionless specifier) is specific to JS/TS module resolution; Python module resolution follows different rules.",
+  "cases": []
+}

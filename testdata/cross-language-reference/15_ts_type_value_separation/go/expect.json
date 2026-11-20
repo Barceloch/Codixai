@@ -1,0 +1,7 @@
+{
+  "concept": "ts_type_value_separation",
+  "language": "go",
+  "comparability": "non_comparable",
+  "justification": "Type/value space separation as modeled in TypeScript (type-only imports, interfaces as non-runtime types, dual-space symbols) is TypeScript-specific and not directly comparable to Go's type system/resolver representation.",
+  "cases": []
+}

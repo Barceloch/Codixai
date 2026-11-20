@@ -1,0 +1,9 @@
+{
+  "concept": "module_missing_export_symbol",
+  "language": "go",
+  "comparability": "approximately_equivalent",
+  "justification": "When an imported package is known/indexed locally but the referenced symbol is missing from it, the reference must not be classified as external. The resolver abstains as unresolved with evidence (symbol absent in known imported package), without inventing a target.",
+  "cases": [
+    {"file":"a.go","name":"Missing","kind":"call","line":6,"expected_resolution":"unresolved","require_evidence":true,"allow_any_line":true,"note":"Selector to missing symbol in known local imported package is unresolved with evidence (not external)"}
+  ]
+}

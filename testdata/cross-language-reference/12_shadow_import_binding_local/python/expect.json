@@ -1,0 +1,9 @@
+{
+  "concept": "shadow_import_binding_local",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "A local variable shadowing an imported module binding must not cause member access/call to resolve to the imported module symbol. Python resolver treats calls on local variables as dynamic with evidence.",
+  "cases": [
+    {"file":"a.py","name":"run","kind":"method","line":5,"expected_resolution":"dynamic","require_evidence":true,"allow_any_line":true,"note":"Member call on locally shadowed module alias must not resolve to imported module function"}
+  ]
+}

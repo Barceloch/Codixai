@@ -1,0 +1,7 @@
+{
+  "concept": "21_function_capture_shadows_outer",
+  "language": "javascript",
+  "comparability": "language_specific",
+  "justification": "The JavaScript lexical resolver emits no comparable reference for the shadowed local call; no incorrect outer resolution is produced.",
+  "cases": []
+}

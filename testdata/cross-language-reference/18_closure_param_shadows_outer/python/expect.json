@@ -1,0 +1,9 @@
+{
+  "concept": "closure_param_shadows_outer",
+  "language": "python",
+  "comparability": "approximately_equivalent",
+  "justification": "A parameter in a nested function shadows an outer module symbol. Calls to the parameter must not resolve to the outer symbol; resolver must abstain conservatively with evidence.",
+  "cases": [
+    {"file":"a.py","name":"helper","kind":"call","line":6,"expected_resolution":"dynamic","require_evidence":true,"allow_any_line":true,"note":"Call to nested function parameter shadows outer helper; must not resolve to module-level helper"}
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "concept": "closure_param_shadows_outer",
+  "language": "javascript",
+  "comparability": "language_specific",
+  "justification": "A parameter in a nested function shadows an outer module symbol. The JavaScript lexical resolver conservatively avoids emitting an incorrect outer-resolution reference for this shadowed call (no ref emitted), satisfying the shared non-misresolution invariant.",
+  "cases": []
+}

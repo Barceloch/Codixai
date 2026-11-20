@@ -13,6 +13,84 @@ default branch.
 
 ## [Unreleased]
 
+### Added — Full directory auditing
+
+This group holds the content accumulated since the `v0.1.0-rc.3` pre-release.
+
+- **`codixai audit <path>` and the MCP `audit_directory` tool.** A directory
+  analysis mode that reads the current content of a directory without a Git
+  repository. Rules run per file language; the document declares
+  `origin: directory` with an empty revision and source-range evidence. Rules
+  that need a diff (such as `CDX-TST-001`) are listed in `missing_rules` instead
+  of being counted as passed. Binary files, files over 10 MB, unsupported
+  extensions and unreadable paths are skipped with a diagnostic, and symbolic
+  links that escape the root are rejected. `schema_version` stays at `0.1`: the
+  new fields are additive and optional. The diff origins (`--base`, `--staged`,
+  `--worktree`) keep their existing behavior.
+- **Reference normalization and persistence recovery** (Phase 5.2.5.2): shared
+  deterministic ordering and deduplication helpers for evidence, candidates and
+  references, applied on the merge path and on `LoadReferences`, with regression
+  tests for ordering, determinism and persistence fidelity.
+
+### Added — ACO Phase 0 measurement harness and reachability audit
+
+- **`codixai measure`**, a local, deterministic harness with `validate`,
+  `compare` and `tasks` subcommands. Run records carry token counts with an
+  explicit source; only `provider_reported` counts may support a savings claim,
+  and missing counts are `unknown`, never zero. `compare` computes savings only
+  for comparable runs (same task, revision and model) with provider-reported
+  totals. Five task templates are registered as data. The harness calls no
+  model provider, transmits nothing and ships no measured results.
+- **The ACO Phase 0 reachability audit**
+  (`docs/roadmap/aco-phase-0-reachability.md`), a read-only map of which
+  capabilities are reachable from the CLI and MCP. It records that reference
+  resolution, persisted references and reference-aware impact are implemented
+  but unreachable. The audit made no implementation change.
+
+### Fixed — Reference resolver corrections
+
+- **Fourteen resolver defects** found by the cross-language comparative corpus
+  were corrected with failing-test-first evidence across Go, Python,
+  JavaScript and TypeScript (shadowing, typed receivers, scope ordering, external
+  classification, comprehension targets and relative imports). The comparative
+  corpus covers 25 concepts and 100 subtests, all passing at the time of the
+  audit. PHP has no reference resolver and no comparative fixture, and the
+  residual WU2/WU3 audit areas remain deferred; neither is claimed here.
+
+### Changed — Validation and testing
+
+- **MCP contract tests** (`internal/integrations/mcpserver/server_test.go`):
+  the real JSON-RPC entry point is exercised for tool registration, input
+  validation, success documents, error behavior, read-only guarantees,
+  determinism and the baseline write for all five tools. They pin the current
+  error semantics; they do not change them.
+- **Official SARIF 2.1.0 schema validation**
+  (`tests/integration/sarif_schema_test.go`): the authoritative OASIS schema is
+  vendored as test data and compiled offline with the JSON Schema validator
+  already present in the module. Real documents from the CLI, the MCP report
+  tool and the production builders pass, and a negative control rejects invalid
+  documents. No production defect was found and no runtime network access was
+  added.
+
+### Changed — Platform verification
+
+- **Native Linux runtime smoke** (x86_64, Go 1.27.1, `CGO_ENABLED=0`, executed
+  2026-11-19): the built CLI reports its version, prints command help, audits a
+  controlled directory (`origin: directory`, `schema_version: 0.1`), audits a
+  Git working tree and exports SARIF 2.1.0; the MCP server completes a real
+  stdio `initialize` → `tools/list` → `tools/call` (`audit_directory`) exchange
+  that lists the five tools. Every command exited 0.
+- **Cross-compilation**: the CLI and the MCP server build for `windows/amd64`,
+  `windows/arm64`, `darwin/amd64` and `darwin/arm64` (`CGO_ENABLED=0`,
+  `go build -trimpath`); `file` confirmed the target binary formats.
+- **Limitation**: Windows and macOS have no runtime in this environment, so
+  those binaries were never executed there. Functional behavior was executed
+  end-to-end only on Linux. CI builds and runs `codixai version` on Ubuntu,
+  macOS and Windows, and the release workflow runs `--help`, `version` and the
+  `ui` exit code natively on Windows, but those are startup-level checks whose
+  results were not observed here and which do not exercise auditing, claims,
+  reporting or the MCP tools. No macOS artifact is published.
+
 ### Changed — The desktop interface is rebuilt on an explicit design system
 
 This is the content of the `v0.1.0-rc.3` pre-release.
@@ -382,13 +460,18 @@ monospace uppercase body made the interface unreadable at any size.
   command. A finding whose line is not part of the compared range is
   identified by the rule and the path only, which is coarser than the
   identity of a finding with a context.
-- The SARIF document is structurally conformant to SARIF 2.1.0 and it is not
-  validated against the official JSON schema: the environment has no network
-  access to fetch it. No import into a code scanning platform was exercised.
+- The SARIF document is validated against the official OASIS 2.1.0 JSON schema
+  at test time with a locally vendored copy; the tool never fetches a schema at
+  runtime. No import into a code scanning platform was exercised.
 - The rule catalog publishes no human readable name, so the SARIF descriptors
   carry the rule identifier in `name` and the same text in
   `shortDescription` and `fullDescription`.
-- There is no MCP server.
+- **MCP server.** The server is built from `cmd/codixai-mcp-srv` and uses the
+  stdio transport by default, with the streamable HTTP transport available via
+  `-http`. It registers five tools: `audit_diff`, `audit_directory`,
+  `verify_claims` and `report` (read-only) plus `baseline_create` (mutating; it
+  writes one baseline file). The generated documents carry `schema_version` as
+  produced by the application layer. See `docs/mcp-integration.md`.
 - The `api_unchanged` and the `behavior_preserved` claims are always
   `unresolved`: the public API is not extracted yet, and static analysis does
   not decide the behavior of a change. They are part of the catalog on
@@ -407,8 +490,10 @@ monospace uppercase body made the interface unreadable at any size.
   exist. The window was not reviewed visually in this environment, and the
   default WebKitGTK 4.0 link fails on the development machine because the
   system library misses `libjxl.so.0.11`; the `webkit2_41` build links.
-- Only Linux was exercised in the development environment. The macOS and
-  Windows builds are defined in CI but their results have not been observed.
+- Only Linux was exercised end-to-end in the development environment. The
+  Windows and macOS binaries were cross-compiled but not executed there; the
+  startup-level checks that CI runs on those platforms were not observed from
+  this environment. See the platform verification entry above.
 - No release has been published: there is no tag, no packaged binary and no
   measured performance or precision figure.
 - The security contact address is pending maintainer confirmation. The

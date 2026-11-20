@@ -1,0 +1,9 @@
+{
+  "concept": "module_missing_export_symbol",
+  "language": "typescript",
+  "comparability": "approximately_equivalent",
+  "justification": "A symbol imported from an existing local module but not found in that module must not resolve to an unrelated target. TypeScript reports unresolved with evidence.",
+  "cases": [
+    {"file":"a.ts","name":"missing","kind":"call","line":4,"expected_resolution":"unresolved","require_evidence":true,"allow_any_line":true,"note":"Call to imported-but-missing export remains unresolved with evidence"}
+  ]
+}
