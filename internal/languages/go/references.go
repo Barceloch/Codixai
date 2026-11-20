@@ -316,6 +316,11 @@ func defaultPackageName(path string) string {
 	return name
 }
 
+// IsBuiltin reports whether name is a predeclared Go identifier.
+func IsBuiltin(name string) bool {
+	return builtins[name]
+}
+
 // builtins holds the names of the identifiers that the language predeclares.
 //
 // The list is the complete set of the predeclared identifiers of the

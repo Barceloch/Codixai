@@ -5,9 +5,21 @@
 // framework or AI provider packages.
 package domain
 
-// SchemaVersion is the version of the JSON output contract. It changes when a
-// consumer-visible field is added, removed or changes meaning in a way that is
-// not backward compatible.
+// SchemaVersion is the version of the JSON output contract.
+//
+// The version increments when the contract changes in a way that is not
+// backward compatible for existing consumers:
+//
+//   - Removing a field.
+//   - Changing the meaning or type of an existing field.
+//   - Changing the structure of an existing field in an incompatible way.
+//
+// Adding optional fields, or adding fields that only appear for specific
+// analysis origins (e.g. "files" and "missing_rules" for origin: directory),
+// does NOT increment the version. Consumers MUST tolerate unknown fields and
+// MUST treat absent optional fields as unspecified.
+//
+// The authoritative rule is documented in AGENTS.md invariant 5.
 const SchemaVersion = "0.1"
 
 // EpistemicStatus classifies how a Finding was established.
@@ -26,9 +38,9 @@ const (
 type Resolution string
 
 const (
-	ResolutionConfirmed  Resolution = "confirmed"
-	ResolutionInferred   Resolution = "inferred"
-	ResolutionUnresolved Resolution = "unresolved"
+	ResolutionConfirmed       Resolution = "confirmed"
+	ResolutionInferred        Resolution = "inferred"
+	ResolutionClaimUnresolved Resolution = "unresolved"
 )
 
 // Severity is the impact class of a Finding.
@@ -200,6 +212,8 @@ type Symbol struct {
 	Kind      string   `json:"kind"`
 	Location  Location `json:"location"`
 	Container string   `json:"container,omitempty"`
+	Signature string   `json:"signature,omitempty"`
+	Exported  *bool    `json:"exported,omitempty"`
 }
 
 // Relation links two symbols or files.

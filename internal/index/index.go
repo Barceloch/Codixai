@@ -14,16 +14,23 @@ import (
 
 	"github.com/barceloch/codixai/internal/domain"
 	golang "github.com/barceloch/codixai/internal/languages/go"
+	"github.com/barceloch/codixai/internal/languages/javascript"
+	"github.com/barceloch/codixai/internal/languages/python"
 	"github.com/barceloch/codixai/internal/languages/registry"
+	"github.com/barceloch/codixai/internal/languages/typescript"
 )
 
 // Symbol represents a basic symbol extracted from source code.
 type Symbol struct {
-	Name     string `json:"name"`
-	Kind     string `json:"kind"`
-	File     string `json:"file"`
-	Line     int    `json:"line"`
-	Language string `json:"language"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	File      string `json:"file"`
+	Line      int    `json:"line"`
+	Column    int    `json:"column,omitempty"`
+	Language  string `json:"language"`
+	Container string `json:"container,omitempty"`
+	Signature string `json:"signature,omitempty"`
+	Exported  *bool  `json:"exported,omitempty"`
 }
 
 // Dependency represents a declared dependency in the repository.
@@ -161,9 +168,40 @@ func (i *Index) Dependencies() []Dependency {
 	return i.dependencies
 }
 
+// AddSymbol adds a symbol to the index (used when loading from storage).
+func (i *Index) AddSymbol(sym Symbol) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.symbols = append(i.symbols, sym)
+}
+
+// AddDependency adds a dependency to the index (used when loading from storage).
+func (i *Index) AddDependency(dep Dependency) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.dependencies = append(i.dependencies, dep)
+}
+
+// Clear clears the index (used when rebuilding).
+func (i *Index) Clear() {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.symbols = []Symbol{}
+	i.dependencies = []Dependency{}
+}
+
 func extract(path string, src []byte, lang string) ([]Symbol, []Dependency) {
 	if lang == domain.LangGo {
 		return extractGo(path, src)
+	}
+	if lang == domain.LangPython {
+		return extractPython(path, src)
+	}
+	if lang == domain.LangJavaScript {
+		return extractJavaScript(path, src)
+	}
+	if lang == domain.LangTypeScript {
+		return extractTypeScript(path, src)
 	}
 	// Fallback for other languages: file-level symbols only
 	return []Symbol{
@@ -177,8 +215,136 @@ func extract(path string, src []byte, lang string) ([]Symbol, []Dependency) {
 	}, nil
 }
 
+func extractJavaScript(path string, src []byte) ([]Symbol, []Dependency) {
+	f, err := javascript.Extract(path, src)
+	if err != nil {
+		return []Symbol{{Name: filepath.Base(path), Kind: "file", File: path, Line: 0, Language: domain.LangJavaScript}}, nil
+	}
+	return mapJSLikeExtract(path, domain.LangJavaScript, f)
+}
+
+func extractTypeScript(path string, src []byte) ([]Symbol, []Dependency) {
+	f, err := typescript.Extract(path, src)
+	if err != nil {
+		return []Symbol{{Name: filepath.Base(path), Kind: "file", File: path, Line: 0, Language: domain.LangTypeScript}}, nil
+	}
+	return mapJSLikeExtract(path, domain.LangTypeScript, f)
+}
+
+func mapJSLikeExtract(path, lang string, f *javascript.File) ([]Symbol, []Dependency) {
+	syms := make([]Symbol, 0, len(f.Symbols)+2)
+	// Keep a file symbol for backward compatibility with existing index consumers/tests.
+	syms = append(syms, Symbol{
+		Name:     filepath.Base(path),
+		Kind:     "file",
+		File:     path,
+		Line:     0,
+		Language: lang,
+	})
+	syms = append(syms, Symbol{
+		Name:     moduleNameFromPath(path),
+		Kind:     "module",
+		File:     path,
+		Line:     1,
+		Language: lang,
+	})
+	for _, s := range f.Symbols {
+		exported := s.Exported
+		language := s.Language
+		if language == "" {
+			language = lang
+		}
+		syms = append(syms, Symbol{
+			Name:      s.Name,
+			Kind:      s.Kind,
+			File:      s.File,
+			Line:      s.Line,
+			Column:    s.Column,
+			Language:  language,
+			Container: s.Container,
+			Signature: s.Signature,
+			Exported:  &exported,
+		})
+	}
+	deps := make([]Dependency, 0, len(f.Imports))
+	seen := map[string]bool{}
+	for _, imp := range f.Imports {
+		mod := imp.Module
+		if mod == "" {
+			continue
+		}
+		key := mod + "\x00" + imp.Kind + "\x00" + imp.Name
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		deps = append(deps, Dependency{Path: mod, File: path, Line: imp.Line, Language: lang})
+	}
+	return syms, deps
+}
+
+func extractPython(path string, src []byte) ([]Symbol, []Dependency) {
+	f, err := python.Extract(path, src)
+	if err != nil {
+		return []Symbol{{Name: filepath.Base(path), Kind: "file", File: path, Language: domain.LangPython}}, nil
+	}
+	syms := make([]Symbol, 0, len(f.Symbols)+2)
+	// Keep a file symbol for backward compatibility with existing index consumers/tests.
+	syms = append(syms, Symbol{
+		Name:     filepath.Base(path),
+		Kind:     "file",
+		File:     path,
+		Line:     0,
+		Language: domain.LangPython,
+	})
+	syms = append(syms, Symbol{
+		Name:     moduleNameFromPath(path),
+		Kind:     "module",
+		File:     path,
+		Line:     1,
+		Language: domain.LangPython,
+	})
+	for _, s := range f.Symbols {
+		exported := s.Exported
+		syms = append(syms, Symbol{
+			Name:      s.Name,
+			Kind:      s.Kind,
+			File:      s.File,
+			Line:      s.Line,
+			Column:    s.Column,
+			Language:  domain.LangPython,
+			Container: s.Container,
+			Signature: s.Signature,
+			Exported:  &exported,
+		})
+	}
+	deps := make([]Dependency, 0, len(f.Imports))
+	seen := map[string]bool{}
+	for _, imp := range f.Imports {
+		mod := imp.Module
+		if imp.Relative {
+			mod = strings.Repeat(".", imp.Level) + mod
+		}
+		if mod == "" {
+			mod = strings.Repeat(".", imp.Level)
+		}
+		key := mod + "\x00" + imp.Name
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		deps = append(deps, Dependency{Path: mod, File: path, Line: imp.Line, Language: domain.LangPython})
+	}
+	return syms, deps
+}
+
+func moduleNameFromPath(path string) string {
+	base := filepath.Base(path)
+	return strings.TrimSuffix(base, filepath.Ext(base))
+}
+
 func extractGo(path string, src []byte) ([]Symbol, []Dependency) {
-	f, err := golang.Parse(filepath.Base(path), src)
+	f, err := golang.Parse(path, src)
 	if err != nil {
 		return nil, nil
 	}
@@ -187,11 +353,29 @@ func extractGo(path string, src []byte) ([]Symbol, []Dependency) {
 	var deps []Dependency
 	if f.Package != "" {
 		syms = append(syms, Symbol{
-			Name:     f.Package,
-			Kind:     "package",
-			File:     path,
-			Line:     0,
-			Language: domain.LangGo,
+			Name:      f.Package,
+			Kind:      "package",
+			File:      path,
+			Line:      0,
+			Language:  domain.LangGo,
+			Container: "",
+			Signature: "",
+			Exported:  nil,
+		})
+	}
+	for _, sym := range f.Symbols {
+		sym.File = path
+		exported := sym.Exported
+		syms = append(syms, Symbol{
+			Name:      sym.Name,
+			Kind:      sym.Kind,
+			File:      sym.File,
+			Line:      sym.Line,
+			Column:    sym.Column,
+			Language:  sym.Language,
+			Container: sym.Container,
+			Signature: sym.Signature,
+			Exported:  &exported,
 		})
 	}
 	for _, imp := range f.Imports {

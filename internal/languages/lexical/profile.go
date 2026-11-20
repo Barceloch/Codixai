@@ -51,6 +51,11 @@ type Marker struct {
 	// Require is an optional second pattern that must match the same line.
 	// It keeps broad markers precise.
 	Require *regexp.Regexp
+	// RequireOffset is the number of lines after the pattern match to check
+	// for the Require pattern. 0 means the same line (default), 1 means the
+	// next line, etc. This enables multi-line markers like "placeholder"
+	// where the comment and the return statement are on different lines.
+	RequireOffset int
 	// Explicit states whether the marker is an explicit statement of an
 	// unfinished implementation. The rules use it to tell an observed fact
 	// apart from an inference.

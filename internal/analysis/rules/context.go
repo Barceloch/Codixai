@@ -197,6 +197,30 @@ func (c *Context) finding(definition Definition, status domain.EpistemicStatus, 
 	return finding
 }
 
+// findingWithColumn builds a finding with column information.
+func (c *Context) findingWithColumn(definition Definition, status domain.EpistemicStatus, message string, line, startColumn, endColumn int, recommendation string) domain.Finding {
+	location := domain.Location{Path: c.View.Path, StartLine: line, EndLine: line, StartColumn: startColumn, EndColumn: endColumn}
+	finding := domain.Finding{
+		SchemaVersion:   domain.SchemaVersion,
+		RuleID:          definition.ID,
+		RuleVersion:     definition.Version,
+		Severity:        definition.Severity,
+		EpistemicStatus: status,
+		Language:        c.Language,
+		Message:         message,
+		Location:        location,
+		Revision:        c.Revision,
+		Evidence:        []domain.Evidence{c.evidence(line)},
+		Support: domain.Support{
+			Level:       c.supportLevel(definition),
+			Method:      definition.Method,
+			Limitations: definition.Limitations[c.Language],
+		},
+		Recommendation: recommendation,
+	}
+	return finding
+}
+
 // directory returns the directory of the changed file inside the repository.
 func (c *Context) directory() string {
 	return filepath.Dir(filepath.ToSlash(c.View.Path))
