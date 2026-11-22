@@ -7,6 +7,7 @@ import (
 
 	"github.com/barceloch/codixai/internal/analysis"
 	"github.com/barceloch/codixai/internal/application"
+	"github.com/barceloch/codixai/internal/domain"
 	"github.com/barceloch/codixai/internal/integrations/git"
 	"github.com/barceloch/codixai/internal/policies"
 	"github.com/barceloch/codixai/internal/report"
@@ -14,9 +15,10 @@ import (
 
 // reportOptions holds the flags of the report command.
 type reportOptions struct {
-	base     string
-	staged   bool
-	worktree bool
+	base      string
+	staged    bool
+	worktree  bool
+	directory string
 }
 
 // newReportCommand builds the report command.
@@ -45,9 +47,11 @@ func newReportCommand(env *Env) *Command {
 			"--format json writes the document of the audit, the same document, byte for\n" +
 			"byte, that 'codixai audit --format json' writes for the same changes.\n" +
 			"\n" +
-			"Exactly one origin has to be selected: --base compares the repository with\n" +
-			"a revision, --staged reads the staging area and --worktree reads the\n" +
-			"changes that are not committed yet.\n" +
+			"Exactly one origin has to be selected:\n" +
+			"  --base compares the repository with a revision\n" +
+			"  --staged reads the staging area\n" +
+			"  --worktree reads the changes that are not committed yet\n" +
+			"  --directory analyzes a directory without requiring a Git repository\n" +
 			"\n" +
 			"The command applies the same policy and the same baseline as the audit. A\n" +
 			"finding that the baseline knows is not a result of the document and does\n" +
@@ -62,14 +66,17 @@ func newReportCommand(env *Env) *Command {
 			"format: the tool has no network access and it never fetches it. The\n" +
 			"document is validated against the structure that the decision 0009 fixes.\n" +
 			"\n" +
-			"The command reads the repository: it never modifies it.",
+			"The command reads the repository or directory: it never modifies it.",
 		Example: "codixai report --format sarif --base main\n" +
 			"codixai report --format sarif --worktree\n" +
-			"codixai report --format json --base main",
+			"codixai report --format json --base main\n" +
+			"codixai report --format sarif --directory ./mi-proyecto\n" +
+			"codixai report --format json --directory ./mi-proyecto",
 		Flags: func(fs *flag.FlagSet) {
 			fs.StringVar(&options.base, "base", "", "Base revision to compare the repository with HEAD.")
 			fs.BoolVar(&options.staged, "staged", false, "Report the findings of the staging area.")
 			fs.BoolVar(&options.worktree, "worktree", false, "Report the findings of the changes that are not committed yet.")
+			fs.StringVar(&options.directory, "directory", "", "Analyze the current content of a directory without requiring a Git repository.")
 		},
 	}
 	command.RunE = func(ctx context.Context, args []string) error {
@@ -92,6 +99,34 @@ func runReport(ctx context.Context, env *Env, options *reportOptions) error {
 	if err != nil {
 		return err
 	}
+
+	// Validate mutually exclusive origin flags.
+	originCount := 0
+	if strings.TrimSpace(options.base) != "" {
+		originCount++
+	}
+	if options.staged {
+		originCount++
+	}
+	if options.worktree {
+		originCount++
+	}
+	if strings.TrimSpace(options.directory) != "" {
+		originCount++
+	}
+	if originCount == 0 {
+		return Usagef("no origin selected: use --base <ref>, --staged, --worktree or --directory <path>")
+	}
+	if originCount > 1 {
+		return Usagef("several origins selected: use only one of --base <ref>, --staged, --worktree or --directory <path>")
+	}
+
+	// Directory mode: analyze a directory without Git.
+	if strings.TrimSpace(options.directory) != "" {
+		return runDirectoryReport(ctx, env, format, options.directory)
+	}
+
+	// Git modes: existing behavior.
 	origin, base, err := resolveOrigin(options.base, options.staged, options.worktree, "report")
 	if err != nil {
 		return err
@@ -121,23 +156,7 @@ func runReport(ctx context.Context, env *Env, options *reportOptions) error {
 		return sanitizeError(err, root)
 	}
 
-	switch format {
-	case report.Format:
-		document := report.SARIF(result, report.SARIFOptions{ToolVersion: Version})
-		if err := writeJSONDocument(env.Stdout, document, "SARIF document"); err != nil {
-			return err
-		}
-	default:
-		if err := writeJSONDocument(env.Stdout, result.Run, "analysis document"); err != nil {
-			return err
-		}
-	}
-
-	writeAuditDiagnostics(env, result)
-	if result.Failed {
-		return &FindingsError{Count: result.FailingFindings, Threshold: result.FailOn}
-	}
-	return nil
+	return writeReportOutput(env, format, result.Run, result, root)
 }
 
 // resolveReportFormat returns the format of the document that the command
@@ -160,4 +179,121 @@ func resolveReportFormat(env *Env) (string, error) {
 		return "", Usagef("the report command writes %s or %s, not %q: use 'codixai audit' for the text report",
 			report.Format, policies.FormatJSON, env.Format)
 	}
+}
+
+// severityRank orders the severities.
+//
+// The ranks are categorical: they express an order, not a measurement.
+func severityRank(severity domain.Severity) int {
+	switch severity {
+	case domain.SeverityInfo:
+		return 1
+	case domain.SeverityWarning:
+		return 2
+	case domain.SeverityError:
+		return 3
+	default:
+		return 0
+	}
+}
+
+// thresholdRank returns the rank of a failure threshold.
+//
+// The threshold none never reaches a finding.
+func thresholdRank(failOn string) int {
+	switch strings.ToLower(strings.TrimSpace(failOn)) {
+	case policies.FailOnError:
+		return severityRank(domain.SeverityError)
+	case policies.FailOnWarning:
+		return severityRank(domain.SeverityWarning)
+	case policies.FailOnNone:
+		return 0
+	default:
+		return severityRank(domain.SeverityError)
+	}
+}
+
+// runDirectoryReport runs a directory analysis and writes the report.
+func runDirectoryReport(ctx context.Context, env *Env, format, directory string) error {
+	root, err := resolveRoot(directory)
+	if err != nil {
+		return err
+	}
+
+	analyzer := analysis.NewDirectoryAnalyzer(analysis.WithToolVersion(Version))
+
+	result, err := application.RunDirectoryAudit(ctx, application.DirectoryAuditRequest{
+		Root:     root,
+		Analyzer: analyzer,
+	})
+	if err != nil {
+		return sanitizeError(err, root)
+	}
+
+	// Load configuration to determine failure threshold.
+	config, err := policies.Load(root)
+	if err != nil {
+		return err
+	}
+	failOn := config.Audit.FailOn
+	if failOn == "" {
+		failOn = policies.FailOnError
+	}
+
+	// For directory analysis, write diagnostics and check failure threshold.
+	writeDirectoryAuditDiagnostics(env, result, root)
+
+	failed := false
+	count := 0
+	if result.Run.Summary.BySeverity != nil {
+		threshold := thresholdRank(failOn)
+		for severity, c := range result.Run.Summary.BySeverity {
+			if severityRank(domain.Severity(severity)) >= threshold && threshold > 0 {
+				failed = true
+				count += c
+			}
+		}
+	}
+
+	// Write the document first, then return FindingsError if applicable.
+	if err := writeReportOutput(env, format, result.Run, nil, root); err != nil {
+		return err
+	}
+
+	if failed {
+		return &FindingsError{Count: count, Threshold: failOn}
+	}
+
+	return nil
+}
+
+// writeReportOutput writes the report in the requested format.
+func writeReportOutput(env *Env, format string, run *domain.AnalysisRun, auditResult *application.AuditResult, root string) error {
+	switch format {
+	case report.Format:
+		var document report.SarifDocument
+		if auditResult != nil {
+			// Git mode: use SARIF with baseline fingerprinting.
+			document = report.SARIF(auditResult, report.SARIFOptions{ToolVersion: Version})
+		} else {
+			// Directory mode: use SARIFDirectory without baseline fingerprinting.
+			document = report.SARIFDirectory(run, report.SARIFOptions{ToolVersion: Version})
+		}
+		if err := writeJSONDocument(env.Stdout, document, "SARIF document"); err != nil {
+			return err
+		}
+	default:
+		if err := writeJSONDocument(env.Stdout, run, "analysis document"); err != nil {
+			return err
+		}
+	}
+
+	// Write diagnostics for Git mode.
+	if auditResult != nil {
+		writeAuditDiagnostics(env, auditResult)
+		if auditResult.Failed {
+			return &FindingsError{Count: auditResult.FailingFindings, Threshold: auditResult.FailOn}
+		}
+	}
+	return nil
 }
