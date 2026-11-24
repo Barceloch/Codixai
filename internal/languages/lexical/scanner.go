@@ -359,9 +359,15 @@ func CodeOrText(line Line, segments map[int][]Segment) string {
 // The marker scope decides the text that is matched: ScopeAny uses the whole
 // line, ScopeCode only the code segments and ScopeComment only the comment
 // segments. When the marker declares a Require pattern, the same line must
-// match it too.
+// match it too, or a line at RequireOffset lines after the pattern match.
 func MatchMarker(marker Marker, lines []Line, segments map[int][]Segment) []int {
 	var matched []int
+	// Build a map from line number to index in the lines slice for O(1) lookup.
+	lineIndex := make(map[int]int, len(lines))
+	for i, line := range lines {
+		lineIndex[line.Number] = i
+	}
+
 	for _, line := range lines {
 		var text string
 		switch marker.Scope {
@@ -375,8 +381,20 @@ func MatchMarker(marker Marker, lines []Line, segments map[int][]Segment) []int 
 		if text == "" || !marker.Pattern.MatchString(text) {
 			continue
 		}
-		if marker.Require != nil && !marker.Require.MatchString(line.Text) {
-			continue
+		if marker.Require != nil {
+			offset := marker.RequireOffset
+			if offset < 0 {
+				offset = 0
+			}
+			requireLineNum := line.Number + offset
+			if idx, ok := lineIndex[requireLineNum]; ok {
+				requireLine := lines[idx]
+				if !marker.Require.MatchString(requireLine.Text) {
+					continue
+				}
+			} else {
+				continue
+			}
 		}
 		matched = append(matched, line.Number)
 	}

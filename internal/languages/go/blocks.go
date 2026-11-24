@@ -8,7 +8,10 @@ import (
 )
 
 // emptyErrorCheckRe matches the header of an error check.
-var emptyErrorCheckRe = regexp.MustCompile(`^\s*if\s+err\s*(!=|==)\s*nil\s*\{\s*$`)
+//
+// It allows the opening brace on the same line or the next line.
+// The closing brace must be visible in the given lines.
+var emptyErrorCheckRe = regexp.MustCompile(`^\s*if\s+err\s*(!=|==)\s*nil\s*\{\s*(\}\s*)?$`)
 
 // EmptyErrorBlocks returns the numbers of the lines that open an error check
 // with an empty body.
@@ -23,7 +26,11 @@ func EmptyErrorBlocks(lines []lexical.Line, segments map[int][]lexical.Segment) 
 		if !emptyErrorCheckRe.MatchString(trimmed) {
 			continue
 		}
-		if i+1 < len(lines) && strings.TrimSpace(lexical.CodeOrText(lines[i+1], segments)) == "}" {
+		// Check if the closing brace is on the same line (matched by regex)
+		// or on the next line.
+		if strings.Contains(trimmed, "}") {
+			found = append(found, line.Number)
+		} else if i+1 < len(lines) && strings.TrimSpace(lexical.CodeOrText(lines[i+1], segments)) == "}" {
 			found = append(found, line.Number)
 		}
 	}
