@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/barceloch/codixai/internal/domain"
@@ -195,5 +197,24 @@ func TestRunAuditRejectsAnIncompleteRequest(t *testing.T) {
 		Analyzer: &fakeAnalyzer{},
 	}); err == nil {
 		t.Error("the audit must reject a request without a root")
+	}
+}
+
+// TestSummaryKeepsItsShapeWithoutFindings checks that the summary publishes
+// its breakdown even when the run found nothing.
+//
+// A consumer reads the same fields whatever the run found: an absent field
+// and an empty breakdown are not the same thing, and a document whose shape
+// depends on the number of findings forces every reader to defend itself
+// against a missing key.
+func TestSummaryKeepsItsShapeWithoutFindings(t *testing.T) {
+	encoded, err := json.Marshal(summarize(nil))
+	if err != nil {
+		t.Fatalf("the summary cannot be encoded: %v", err)
+	}
+	for _, field := range []string{"by_severity", "by_rule", "by_language", "by_epistemic_status"} {
+		if !strings.Contains(string(encoded), `"`+field+`":{}`) {
+			t.Errorf("the summary does not publish %q as an empty breakdown: %s", field, encoded)
+		}
 	}
 }

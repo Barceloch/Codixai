@@ -54,10 +54,11 @@ func (a *DirectoryAnalyzer) AnalyzeDirectory(ctx context.Context, fileSet *sourc
 	}
 
 	var (
-		findings    []domain.Finding
-		diagnostics []domain.Diagnostic
-		analyzed    int
-		skipped     = fileSet.Skipped
+		findings     []domain.Finding
+		diagnostics  []domain.Diagnostic
+		analyzed     int
+		skipped      = fileSet.Skipped
+		skippedFiles = append([]domain.SkippedFile(nil), fileSet.SkippedFiles...)
 	)
 
 	// Rules that require diff comparison are not applicable in directory mode.
@@ -69,6 +70,7 @@ func (a *DirectoryAnalyzer) AnalyzeDirectory(ctx context.Context, fileSet *sourc
 		}
 		if file.IsBinary {
 			skipped++
+			skippedFiles = append(skippedFiles, domain.SkippedFile{Path: file.Path, Reason: domain.SkipBinary})
 			continue
 		}
 		language := file.Language
@@ -77,12 +79,14 @@ func (a *DirectoryAnalyzer) AnalyzeDirectory(ctx context.Context, fileSet *sourc
 		}
 		if language == "" {
 			skipped++
+			skippedFiles = append(skippedFiles, domain.SkippedFile{Path: file.Path, Reason: domain.SkipUnsupportedLanguage})
 			continue
 		}
 
 		profile, ok := registry.ProfileFor(language)
 		if !ok {
 			skipped++
+			skippedFiles = append(skippedFiles, domain.SkippedFile{Path: file.Path, Reason: domain.SkipUnsupportedLanguage})
 			continue
 		}
 
@@ -168,6 +172,7 @@ func (a *DirectoryAnalyzer) AnalyzeDirectory(ctx context.Context, fileSet *sourc
 			Excluded:      fileSet.Excluded,
 			ExcludedPaths: fileSet.ExcludedPaths,
 			Skipped:       skipped,
+			SkippedFiles:  skippedFiles,
 		},
 		Limitations: directoryLimitations(),
 	}

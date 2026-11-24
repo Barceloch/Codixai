@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -123,17 +124,23 @@ func (s *DirectorySource) Files(ctx context.Context) (*FileSetInfo, error) {
 			// The file has no language that a rule supports: it is part of the
 			// directory but it is not analyzed.
 			fileSet.Skipped++
+			fileSet.SkippedFiles = append(fileSet.SkippedFiles,
+				domain.SkippedFile{Path: rel, Reason: domain.SkipUnsupportedLanguage})
 			return nil
 		}
 
 		content, size, err := s.readFile(path)
 		if err != nil {
 			fileSet.Skipped++
+			fileSet.SkippedFiles = append(fileSet.SkippedFiles,
+				domain.SkippedFile{Path: rel, Reason: skipReasonOf(err)})
 			fileSet.Diagnostics = append(fileSet.Diagnostics, fmt.Sprintf("cannot read file %s: %v", rel, err))
 			return nil
 		}
 		if size > MaxFileSize {
 			fileSet.Skipped++
+			fileSet.SkippedFiles = append(fileSet.SkippedFiles,
+				domain.SkippedFile{Path: rel, Reason: domain.SkipTooLarge})
 			fileSet.Diagnostics = append(fileSet.Diagnostics, fmt.Sprintf("file too large (%d bytes), max is %d", size, MaxFileSize))
 			return nil
 		}
@@ -141,6 +148,8 @@ func (s *DirectorySource) Files(ctx context.Context) (*FileSetInfo, error) {
 		binary := isBinary(content)
 		if binary {
 			fileSet.Skipped++
+			fileSet.SkippedFiles = append(fileSet.SkippedFiles,
+				domain.SkippedFile{Path: rel, Reason: domain.SkipBinary})
 			return nil
 		}
 
@@ -163,6 +172,40 @@ func (s *DirectorySource) Files(ctx context.Context) (*FileSetInfo, error) {
 	return fileSet, nil
 }
 
+// skipError is the error of a read that the discovery reports as a skip.
+//
+// It carries the reason so the caller never has to read the text of the error
+// to classify it.
+type skipError struct {
+	reason string
+}
+
+// Error returns the human readable explanation of the skip.
+//
+// The text is a fixed sentence: it never embeds the absolute path of the file,
+// so a diagnostic cannot leak a path of the machine that runs the analysis.
+func (e skipError) Error() string {
+	switch e.reason {
+	case domain.SkipOutsideRoot:
+		return "access denied: the path resolves outside the analyzed root"
+	case domain.SkipNotRegularFile:
+		return "access denied: the path is not a regular file"
+	}
+	return e.reason
+}
+
+// skipReasonOf returns the reason of a skip from the error of the read.
+//
+// An error that does not carry a reason is reported as unreadable: the file
+// was walked and it could not be read, and the discovery does not guess why.
+func skipReasonOf(err error) string {
+	var skip skipError
+	if errors.As(err, &skip) {
+		return skip.reason
+	}
+	return domain.SkipUnreadable
+}
+
 // readFile reads a file only when its resolved path belongs to the root.
 //
 // The path is resolved with its symbolic links before it is compared with the
@@ -181,14 +224,14 @@ func (s *DirectorySource) readFile(path string) (string, int64, error) {
 		return "", 0, err
 	}
 	if !withinRoot(s.root, resolved) {
-		return "", 0, fmt.Errorf("access denied: the path resolves outside the analyzed root")
+		return "", 0, skipError{reason: domain.SkipOutsideRoot}
 	}
 	info, err := os.Stat(resolved)
 	if err != nil {
 		return "", 0, err
 	}
 	if !info.Mode().IsRegular() {
-		return "", 0, fmt.Errorf("access denied: the path is not a regular file")
+		return "", 0, skipError{reason: domain.SkipNotRegularFile}
 	}
 	if info.Size() > MaxFileSize {
 		return "", info.Size(), nil

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/barceloch/codixai/internal/domain"
 	"github.com/barceloch/codixai/internal/source"
 )
 
@@ -293,5 +294,54 @@ func TestDirectorySourceRejectsAFileRoot(t *testing.T) {
 	writeFile(t, root, "main.go", "package main\n")
 	if _, err := source.NewDirectorySource(filepath.Join(root, "main.go"), nil); err == nil {
 		t.Fatal("a file was accepted as a directory root")
+	}
+}
+
+// TestDirectorySourceExplainsEverySkip checks that every file that the walk
+// meets and the analysis does not analyze is reported with a reason.
+//
+// The counters alone say how many files were skipped; the reason says why, so
+// a reader can tell an unsupported extension from a file that could not be
+// read without guessing.
+func TestDirectorySourceExplainsEverySkip(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	writeFile(t, root, "main.go", "package main\n")
+	writeFile(t, root, "notes.unknownext", "not a supported language\n")
+	writeFile(t, root, "blob.go", "\x00\x01binary")
+	writeFile(t, outside, "secret.go", "package secret\n")
+	if err := os.Symlink(filepath.Join(outside, "secret.go"), filepath.Join(root, "leak.go")); err != nil {
+		t.Skipf("the platform cannot create symbolic links: %v", err)
+	}
+
+	set, err := openSource(t, root).Files(context.Background())
+	if err != nil {
+		t.Fatalf("the discovery failed: %v", err)
+	}
+
+	reasons := map[string]string{}
+	for _, skipped := range set.SkippedFiles {
+		reasons[skipped.Path] = skipped.Reason
+	}
+	want := map[string]string{
+		"notes.unknownext": domain.SkipUnsupportedLanguage,
+		"blob.go":          domain.SkipBinary,
+		"leak.go":          domain.SkipOutsideRoot,
+	}
+	for path, reason := range want {
+		if reasons[path] != reason {
+			t.Errorf("the skip of %q is %q, want %q", path, reasons[path], reason)
+		}
+	}
+	if len(set.SkippedFiles) != set.Skipped {
+		t.Errorf("the skipped files are %d and the counter is %d", len(set.SkippedFiles), set.Skipped)
+	}
+	for _, skipped := range set.SkippedFiles {
+		if filepath.IsAbs(skipped.Path) {
+			t.Errorf("the skipped path is absolute: %q", skipped.Path)
+		}
+	}
+	if reasons["main.go"] != "" {
+		t.Errorf("the analyzed file is reported as skipped: %q", reasons["main.go"])
 	}
 }

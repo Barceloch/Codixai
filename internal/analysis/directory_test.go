@@ -2,6 +2,7 @@ package analysis_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -272,5 +273,43 @@ func TestAnalyzeDirectoryDeclaresItsLimitations(t *testing.T) {
 		if !containsLimitation(run.Limitations, fragment) {
 			t.Errorf("the limitation %q is missing: %v", name, run.Limitations)
 		}
+	}
+}
+
+// TestAnalyzeDirectoryExplainsTheSkippedFiles checks that the document of a
+// directory analysis names every file that was walked and not analyzed, with
+// the reason, so a reader never has to guess why a file is missing from the
+// analysis.
+func TestAnalyzeDirectoryExplainsTheSkippedFiles(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "main.go", "package main\n")
+	writeFile(t, root, "notes.unknownext", "not a supported language\n")
+	writeFile(t, root, "blob.go", "\x00\x01binary")
+
+	run, _ := analyzeDirectory(t, root)
+	if run.Files == nil {
+		t.Fatal("the directory document does not publish the file statistics")
+	}
+	reasons := map[string]string{}
+	for _, skipped := range run.Files.SkippedFiles {
+		reasons[skipped.Path] = skipped.Reason
+	}
+	if reasons["notes.unknownext"] != domain.SkipUnsupportedLanguage {
+		t.Errorf("the unsupported file is reported as %q, want %q",
+			reasons["notes.unknownext"], domain.SkipUnsupportedLanguage)
+	}
+	if reasons["blob.go"] != domain.SkipBinary {
+		t.Errorf("the binary file is reported as %q, want %q", reasons["blob.go"], domain.SkipBinary)
+	}
+	if reasons["main.go"] != "" {
+		t.Errorf("the analyzed file is reported as skipped: %q", reasons["main.go"])
+	}
+
+	encoded, err := json.Marshal(run)
+	if err != nil {
+		t.Fatalf("the document cannot be encoded: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"skipped_files"`) {
+		t.Errorf("the document does not publish the skipped files: %s", encoded)
 	}
 }

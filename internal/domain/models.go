@@ -135,12 +135,15 @@ type Rule struct {
 }
 
 // Summary aggregates findings or claim results.
+//
+// The breakdown maps are always published, even when their count is zero:
+// a consumer reads the same fields whatever the run found.
 type Summary struct {
 	Total             int            `json:"total"`
-	BySeverity        map[string]int `json:"by_severity,omitempty"`
-	ByRule            map[string]int `json:"by_rule,omitempty"`
-	ByLanguage        map[string]int `json:"by_language,omitempty"`
-	ByEpistemicStatus map[string]int `json:"by_epistemic_status,omitempty"`
+	BySeverity        map[string]int `json:"by_severity"`
+	ByRule            map[string]int `json:"by_rule"`
+	ByLanguage        map[string]int `json:"by_language"`
+	ByEpistemicStatus map[string]int `json:"by_epistemic_status"`
 }
 
 // AnalysisRun is the document produced by an analysis over a diff.
@@ -169,7 +172,41 @@ type DirectoryFilesInfo struct {
 	Excluded      int      `json:"excluded"`
 	ExcludedPaths []string `json:"excluded_paths,omitempty"`
 	Skipped       int      `json:"skipped"`
+	// SkippedFiles names every file that was walked and not analyzed, with
+	// the reason. The path is relative to the analyzed root.
+	//
+	// This field is only populated for directory analysis.
+	SkippedFiles []SkippedFile `json:"skipped_files,omitempty"`
 }
+
+// SkippedFile is a file that the discovery walked and the analysis did not
+// analyze, with the reason of the omission.
+type SkippedFile struct {
+	// Path is the path of the file, relative to the analyzed root.
+	Path string `json:"path"`
+	// Reason is one of the skip reasons of the catalog.
+	Reason string `json:"reason"`
+}
+
+// The reasons why a file is walked and not analyzed.
+//
+// Every reason is verifiable by the discovery: it comes from the extension of
+// the path, from the content of the file, from its size or from the error of
+// the read, never from a guess.
+const (
+	// SkipUnsupportedLanguage is a file whose language no rule supports.
+	SkipUnsupportedLanguage = "unsupported_language"
+	// SkipBinary is a file whose content is binary.
+	SkipBinary = "binary"
+	// SkipTooLarge is a file larger than the read limit.
+	SkipTooLarge = "too_large"
+	// SkipUnreadable is a file that could not be read.
+	SkipUnreadable = "unreadable"
+	// SkipOutsideRoot is a path that resolves outside the analyzed root.
+	SkipOutsideRoot = "outside_root"
+	// SkipNotRegularFile is a path that is not a regular file.
+	SkipNotRegularFile = "not_regular_file"
+)
 
 // MissingRule describes a rule that is not applicable in the current analysis mode.
 type MissingRule struct {

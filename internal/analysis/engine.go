@@ -174,15 +174,15 @@ func sortFindings(findings []domain.Finding) {
 // summarize counts the findings by severity, rule, language and epistemic
 // status.
 func summarize(findings []domain.Finding) domain.Summary {
-	summary := domain.Summary{Total: len(findings)}
+	summary := domain.Summary{
+		Total:             len(findings),
+		BySeverity:        map[string]int{},
+		ByRule:            map[string]int{},
+		ByLanguage:        map[string]int{},
+		ByEpistemicStatus: map[string]int{},
+	}
 	for _, finding := range findings {
 		severity := string(finding.Severity)
-		if summary.BySeverity == nil {
-			summary.BySeverity = map[string]int{}
-			summary.ByRule = map[string]int{}
-			summary.ByLanguage = map[string]int{}
-			summary.ByEpistemicStatus = map[string]int{}
-		}
 		summary.BySeverity[severity]++
 		summary.ByRule[finding.RuleID]++
 		summary.ByLanguage[finding.Language]++

@@ -23,4 +23,7 @@ type FileSetInfo struct {
 	// because the language is not supported, the file is too large, the file
 	// is binary or it could not be read.
 	Skipped int
+	// SkippedFiles names every file that was walked and not analyzed, with
+	// the reason. The path is relative to the root of the discovery.
+	SkippedFiles []domain.SkippedFile
 }
