@@ -1,5 +1,6 @@
 # Build output
 /codixai
+/codixai-mcp-srv
 /bin/
 /dist/
 *.exe
@@ -40,3 +41,15 @@ dist/local-test/
 
 # Local ODD tracking
 odd/
+
+# CodeGraph local index
+.codegraph/
+
+# Leftover fixture repositories from earlier experiments: every one of them
+# carries a nested .git and none is used by the corpus. They are kept on disk
+# and never tracked.
+testdata/agent-diffs/CDX-ERR-001/go/positive/testrepo/
+testdata/agent-diffs/CDX-IMP-001/go/positive/test/
+testdata/agent-diffs/CDX-REF-001/go/positive/test/
+testdata/agent-diffs/CDX-REF-001/go/positive/undefined_symbol.repo/
+testdata/agent-diffs/CDX-SUP-001/python/positive/test/
