@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/barceloch/codixai/internal/integrations/mcpserver"
 	"github.com/mark3labs/mcp-go/server"
@@ -28,8 +31,18 @@ func main() {
 		return
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-sigChan
+		cancel()
+	}()
+
 	stdioServer := server.NewStdioServer(s)
-	if err := stdioServer.Listen(nil, os.Stdin, os.Stdout); err != nil {
+	if err := stdioServer.Listen(ctx, os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintf(os.Stderr, "codixai-mcp: %v\n", err)
 		os.Exit(1)
 	}
