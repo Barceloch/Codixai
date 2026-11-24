@@ -196,7 +196,7 @@ func ExtractImportsRaw(lines []lexical.Line) []lexical.ImportSpec {
 		if rest == "" {
 			continue
 		}
-		if path, ok := importPathOf(rest); ok {
+		if path, ok := importPathOf(trimmed); ok {
 			imports = append(imports, lexical.ImportSpec{Module: path, Line: line.Number})
 		}
 	}
@@ -218,12 +218,8 @@ func ExtractImports(lines []lexical.Line, segments map[int][]lexical.Segment) []
 	var imports []lexical.ImportSpec
 	inBlock := false
 	for _, line := range lines {
-		// When inside an import block, we need to look at string segments
-		// too, because import paths are string literals.
 		var text string
 		if inBlock {
-			// Inside import block: use all segments (code + string)
-			// but skip comment segments.
 			if segs, ok := segments[line.Number]; ok {
 				var parts []string
 				for _, seg := range segs {
@@ -236,10 +232,6 @@ func ExtractImports(lines []lexical.Line, segments map[int][]lexical.Segment) []
 				text = line.Text
 			}
 		} else {
-			// Outside import block: use code segments to avoid false positives
-			// from strings and comments. However, for lines that start with
-			// "import", we need the full text including string segments to
-			// extract the import path (which is a string literal).
 			if segs, ok := segments[line.Number]; ok {
 				var codeParts, fullParts []string
 				for _, seg := range segs {
