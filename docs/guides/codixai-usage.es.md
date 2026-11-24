@@ -494,7 +494,12 @@ Ajusta `audit.fail_on` en `.codixai.yml` o usa una línea base.
   el runner no tiene escritorio interactivo. Ver la sección siguiente.
 - **La verificación exporta solo JSON** desde la ventana.
 - **El binario no está firmado.** Windows SmartScreen puede avisar.
-- **El servidor MCP** (`codixai-mcp-srv`) no forma parte de esta entrega.
+- **El servidor MCP** (`codixai-mcp-srv`) **está implementado pero no forma
+  parte de esta entrega.** El código vive en `cmd/codixai-mcp-srv` y se
+  compila con `go build ./cmd/codixai-mcp-srv`; los cuatro paquetes
+  precompilados del release solo incluyen la CLI. Una integración con un
+  agente tiene que compilar el binario primero y apuntar su configuración MCP
+  al archivo compilado.
 - **Un resultado vacío no prueba que el cambio sea correcto.** La ausencia de
   hallazgos no es una garantía.
 - **El análisis de directorio no aplica `.gitignore`.** Solo se aplican los

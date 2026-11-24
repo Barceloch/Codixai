@@ -60,6 +60,11 @@ has to be fixed in one of the two.
   no progress, no spinner, no diagnostic. The diagnostics, the warnings
   about the excluded files and the count of the suppressed findings go to
   the standard error.
+- **The summary keeps its shape.** The breakdown maps of `summary`
+  (`by_severity`, `by_rule`, `by_language`, `by_epistemic_status`) are always
+  present, with an empty object when the count is zero. A field that
+  disappears when the run found nothing forces every consumer to defend
+  itself against a missing key, so it is never omitted.
 - **The document is deterministic.** The same input produces the same
   output, except for `generated_at`. The findings are sorted by path, line
   and rule identifier.

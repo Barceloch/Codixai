@@ -62,7 +62,9 @@ What does **not** exist today:
 
 - no persistent index, no symbol graph, no `index`, `status`, `overview`,
   `find`, `refs` or `deps` commands;
-- no MCP server;
+- no MCP server packaged in the release archives: the server is implemented
+  and it is built from source with `go build ./cmd/codixai-mcp-srv`, but the
+  four precompiled packages of the delivery carry the CLI only;
 - no semantic resolution: every rule is at most `syntactic`;
 - no verification of the behavior of a change: the `api_unchanged` and the
   `behavior_preserved` claims are always `unresolved`;
@@ -242,7 +244,11 @@ run it.
 - The verification screen exports JSON only; the SARIF export of a
   verification is not implemented in this version.
 - The binary is not signed.
-- The MCP server (`codixai-mcp-srv`) is not part of this delivery.
+- **The MCP server (`codixai-mcp-srv`) is implemented but it is not part of
+  this delivery.** The source lives in `cmd/codixai-mcp-srv` and it is built
+  with `go build ./cmd/codixai-mcp-srv`; the four precompiled packages of the
+  release carry the CLI only. An agent integration has to build the binary
+  first and point its MCP configuration at the built file.
 
 A Spanish guide is published alongside the English one at
 [`docs/guides/codixai-usage.es.md`](docs/guides/codixai-usage.es.md).
@@ -663,7 +669,12 @@ the roadmap:
 - **The rule catalog publishes no human readable name**, so the SARIF
   descriptors carry the rule identifier in `name` and the description in both
   `shortDescription` and `fullDescription`.
-- **No MCP server.** It belongs to Phase 4 and it is not implemented.
+- **The MCP server exposes five tools and no more.** `audit_diff`,
+  `audit_directory`, `verify_claims`, `report` and `baseline_create` are
+  available over stdio and over streamable HTTP; reference resolution,
+  reference aware impact and the structural index are not exposed through
+  MCP. The binary is built from source and it is not packaged in the release
+  archives.
 - **The graphical interface covers the audit screen only.** The `ui` build
   variant exists: `codixai ui` opens a Wails v2 window with a Svelte 5
   frontend that audits a repository and shows the findings with their
@@ -744,6 +755,10 @@ pending.
 - [Code of conduct](CODE_OF_CONDUCT.md)
 - [Security policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
+
+## Developer
+
+Codixai is developed by **Yunior Barceló — barceloch@gmail.com**.
 
 ## Contributing
 

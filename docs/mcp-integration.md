@@ -19,6 +19,14 @@ go build ./cmd/codixai-mcp-srv
 
 ## Tools
 
+The three tools that return an audit document accept an optional boolean
+`include_rules`. It defaults to `true`, so a caller that reads the document as
+before sees no change. The catalog of rules is static for a build: a caller
+that does not need it sets `include_rules` to `false` and receives the same
+document without the `rules` array, which keeps the context of the
+conversation small. The findings, the summary, the limitations, the evidence
+and the directory statistics are never omitted.
+
 All tools take `root` as a required string. `root` is trimmed, converted to an absolute path when relative (relative paths are resolved against the working directory of the server process, not against another argument), and cleaned. The tools reject a missing `root`.
 
 ### `audit_diff`
@@ -31,7 +39,8 @@ Run an audit over repository changes.
   "root": {"type": "string", "required": true, "description": "Absolute path to the repository root"},
   "base": {"type": "string", "required": false, "description": "Base revision for base comparison"},
   "staged": {"type": "boolean", "required": false, "description": "Audit staged changes"},
-  "worktree": {"type": "boolean", "required": false, "description": "Audit changes that are not committed yet"}
+  "worktree": {"type": "boolean", "required": false, "description": "Audit changes that are not committed yet"},
+  "include_rules": {"type": "boolean", "required": false, "description": "Include the catalog of rules in the document (default: true)"}
 }
 ```
 
@@ -49,13 +58,14 @@ Audit the current content of a directory without requiring a Git repository.
 **Input schema:**
 ```json
 {
-  "root": {"type": "string", "required": true, "description": "Absolute path to the directory root"}
+  "root": {"type": "string", "required": true, "description": "Absolute path to the directory root"},
+  "include_rules": {"type": "boolean", "required": false, "description": "Include the catalog of rules in the document (default: true)"}
 }
 ```
 
 **Behavior:**
 - Uses `application.RunDirectoryAudit` with `analysis.NewDirectoryAnalyzer`.
-- Rules that need a diff are declared in `missing_rules` and are never counted as passed. Binary files, files over 10 MB, unsupported extensions and unreadable paths are skipped with a diagnostic; symbolic links that escape the root are rejected.
+- Rules that need a diff are declared in `missing_rules` and are never counted as passed. Binary files, files over 10 MB, unsupported extensions and unreadable paths are skipped and named in `files.skipped_files`, each one with a `reason` of the catalog (`unsupported_language`, `binary`, `too_large`, `unreadable`, `outside_root`, `not_regular_file`); symbolic links that escape the root are rejected. Every path of the list is relative to the analyzed root, and a diagnostic never embeds an absolute path of the machine that runs the analysis. A directory excluded by `analysis.exclude` is not walked, so it is reported in `files.excluded_paths` instead.
 - Returns the `domain.AnalysisRun` as JSON text content. The failure threshold is read from `audit.fail_on` of the repository configuration and is carried by `isError`.
 
 **Mode:** read-only.
@@ -75,6 +85,8 @@ Verify agent claims against the repository.
 
 **Behavior:**
 - `base` and `claims_path` are required and must be non-empty after trimming. A relative `claims_path` is resolved against the working directory of the server process.
+- The claim file is validated before the comparison. A claim that declares a field no type of the catalog evaluates is rejected with an error that names the line and the field: `symbols` is such a field, because no claim type resolves a symbol, so a claim that declared it would be answered by a verdict that ignores what it asserts.
+- Every claim is decided about the compared range. A test claim whose paths hold no changed file is `contradicted` when the range is not empty, because no test file of those paths was added or modified in the range, and `unresolved` when the range is empty, because there is no evidence at all.
 - Uses `application.RunVerify` with `git.New(root)`, `claims.Loader{}`, and `claims.NewEvaluator(claims.WithRoot(root), claims.WithBase(base))`.
 - Returns the verification document as JSON text content. `isError` is set when a claim is contradicted, or when an unresolved claim reaches the configured `verify.fail_on_unresolved` threshold; the document is still returned.
 
@@ -92,13 +104,15 @@ Export the audit of a change set or of a directory as SARIF 2.1.0 or as the audi
   "base": {"type": "string", "required": false, "description": "Base revision for base comparison"},
   "staged": {"type": "boolean", "required": false, "description": "Audit staged changes"},
   "worktree": {"type": "boolean", "required": false, "description": "Audit working tree changes"},
-  "directory": {"type": "string", "required": false, "description": "Analyze a directory without requiring a Git repository"}
+  "directory": {"type": "string", "required": false, "description": "Analyze a directory without requiring a Git repository"},
+  "include_rules": {"type": "boolean", "required": false, "description": "Include the catalog of rules in the JSON document (default: true)"}
 }
 ```
 
 **Behavior:**
 - Exactly one origin must be selected: `base`, `staged`, `worktree` or `directory`. Zero or several origins are an error.
 - `format` is case insensitive; `sarif` is the default and `json` writes the audit document. Any other value is an error.
+- `include_rules` applies to the JSON document only. A SARIF document always carries its rule descriptors in `runs[].tool.driver.rules`, because they are part of the SARIF contract.
 - With `directory`, the audit is rooted at that path and uses `report.SARIFDirectory` for SARIF. With a diff origin, the audit is rooted at `root` and uses `report.SARIF`.
 - Returns the selected document as JSON text content. `isError` follows the failure threshold of the selected audit.
 
@@ -143,6 +157,7 @@ Create a baseline of findings for a repository. This is the only tool that write
 - Large diffs and claims files follow the same limits as the CLI.
 - Errors use two channels. A handler or validation failure is returned as a JSON-RPC error; an audit or verification whose findings reach the failure threshold returns its document with `isError` set. mcp-go input-schema validation is not enabled in this server, so missing or wrongly typed arguments are rejected inside the handlers and currently surface as JSON-RPC `INTERNAL_ERROR` (-32603) rather than `INVALID_PARAMS`.
 - Only the five tools listed above are exposed. Reference resolution and reference-aware impact are not available through MCP.
+- The catalog of rules is a large, static part of the audit document: measured on the fixtures of the QA, it is 54% of an `audit_diff` response with findings and 80% of an `audit_directory` response without them. `include_rules: false` removes it and keeps every other field.
 
 ## References
 
