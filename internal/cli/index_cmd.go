@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/barceloch/codixai/internal/application"
 	"github.com/barceloch/codixai/internal/domain"
-	"github.com/barceloch/codixai/internal/index"
 	"github.com/barceloch/codixai/internal/integrations/git"
 )
 
 // indexDiffBase holds the --base flag value for index diff command.
 var indexDiffBase string
+var indexForce bool
+var indexPath string
 
 // newIndexCommand creates the index subcommand.
 func newIndexCommand(env *Env) *Command {
@@ -23,6 +25,11 @@ func newIndexCommand(env *Env) *Command {
 	cmd.AddCommand(&Command{
 		Use:   "build",
 		Short: "Build the structural index of the repository.",
+		Flags: func(fs *flag.FlagSet) {
+			fs.StringVar(&env.Root, "root", "", "Repository root (defaults to current directory)")
+			fs.BoolVar(&indexForce, "force", false, "Force a full rebuild of the index")
+			fs.StringVar(&indexPath, "index-path", "", "Path to the index file (defaults to .codixai/index.db)")
+		},
 		RunE: func(ctx context.Context, args []string) error {
 			return runIndexBuild(ctx, env)
 		},
@@ -30,6 +37,10 @@ func newIndexCommand(env *Env) *Command {
 	cmd.AddCommand(&Command{
 		Use:   "status",
 		Short: "Show index status.",
+		Flags: func(fs *flag.FlagSet) {
+			fs.StringVar(&env.Root, "root", "", "Repository root (defaults to current directory)")
+			fs.StringVar(&indexPath, "index-path", "", "Path to the index file (defaults to .codixai/index.db)")
+		},
 		RunE: func(ctx context.Context, args []string) error {
 			return runIndexStatus(ctx, env)
 		},
@@ -37,6 +48,10 @@ func newIndexCommand(env *Env) *Command {
 	cmd.AddCommand(&Command{
 		Use:   "overview",
 		Short: "Show index overview.",
+		Flags: func(fs *flag.FlagSet) {
+			fs.StringVar(&env.Root, "root", "", "Repository root (defaults to current directory)")
+			fs.StringVar(&indexPath, "index-path", "", "Path to the index file (defaults to .codixai/index.db)")
+		},
 		RunE: func(ctx context.Context, args []string) error {
 			return runIndexOverview(ctx, env)
 		},
@@ -44,6 +59,10 @@ func newIndexCommand(env *Env) *Command {
 	cmd.AddCommand(&Command{
 		Use:   "find [query]",
 		Short: "Find symbols in the index.",
+		Flags: func(fs *flag.FlagSet) {
+			fs.StringVar(&env.Root, "root", "", "Repository root (defaults to current directory)")
+			fs.StringVar(&indexPath, "index-path", "", "Path to the index file (defaults to .codixai/index.db)")
+		},
 		RunE: func(ctx context.Context, args []string) error {
 			if len(args) == 0 {
 				return Usagef("the find command requires a query")
@@ -54,6 +73,10 @@ func newIndexCommand(env *Env) *Command {
 	cmd.AddCommand(&Command{
 		Use:   "refs [query]",
 		Short: "Find references of a symbol.",
+		Flags: func(fs *flag.FlagSet) {
+			fs.StringVar(&env.Root, "root", "", "Repository root (defaults to current directory)")
+			fs.StringVar(&indexPath, "index-path", "", "Path to the index file (defaults to .codixai/index.db)")
+		},
 		RunE: func(ctx context.Context, args []string) error {
 			if len(args) == 0 {
 				return Usagef("the refs command requires a symbol name")
@@ -64,6 +87,10 @@ func newIndexCommand(env *Env) *Command {
 	cmd.AddCommand(&Command{
 		Use:   "deps",
 		Short: "List declared dependencies from the index.",
+		Flags: func(fs *flag.FlagSet) {
+			fs.StringVar(&env.Root, "root", "", "Repository root (defaults to current directory)")
+			fs.StringVar(&indexPath, "index-path", "", "Path to the index file (defaults to .codixai/index.db)")
+		},
 		RunE: func(ctx context.Context, args []string) error {
 			return runIndexDeps(ctx, env)
 		},
@@ -89,24 +116,38 @@ func runIndexBuild(ctx context.Context, env *Env) error {
 		return err
 	}
 
-	idx := index.New()
-	if err := idx.Build(ctx, root); err != nil {
-		return fmt.Errorf("failed to build index: %w", err)
+	result, err := application.RunIndex(ctx, application.IndexRequest{
+		Root:            root,
+		IndexPath:       indexPath,
+		ForceRebuild:    indexForce,
+		ToolVersion:     Version,
+		AnalyzerVersion: Version,
+	})
+	if err != nil {
+		return err
 	}
 
 	if env.JSON() {
 		doc := map[string]any{
-			"schema_version": domain.SchemaVersion,
-			"tool_version":   Version,
-			"root":           root,
-			"symbols_count":  len(idx.Symbols()),
+			"schema_version":     domain.SchemaVersion,
+			"tool_version":       Version,
+			"root":               result.Root,
+			"index_path":         result.IndexPath,
+			"files_indexed":      result.FilesIndexed,
+			"symbols_count":      result.SymbolsCount,
+			"dependencies_count": result.DependenciesCount,
+			"duration_ms":        result.Duration.Milliseconds(),
 		}
 		return writeJSONDocument(env.Stdout, doc, "index")
 	}
 
 	fmt.Fprintf(env.Stdout, "Index built successfully\n")
-	fmt.Fprintf(env.Stdout, "  root: %s\n", root)
-	fmt.Fprintf(env.Stdout, "  symbols: %d\n", len(idx.Symbols()))
+	fmt.Fprintf(env.Stdout, "  root: %s\n", result.Root)
+	fmt.Fprintf(env.Stdout, "  index: %s\n", result.IndexPath)
+	fmt.Fprintf(env.Stdout, "  files indexed: %d\n", result.FilesIndexed)
+	fmt.Fprintf(env.Stdout, "  symbols: %d\n", result.SymbolsCount)
+	fmt.Fprintf(env.Stdout, "  dependencies: %d\n", result.DependenciesCount)
+	fmt.Fprintf(env.Stdout, "  duration: %s\n", result.Duration)
 	return nil
 }
 
@@ -117,26 +158,37 @@ func runIndexStatus(ctx context.Context, env *Env) error {
 		return err
 	}
 
-	idx := index.New()
-	if err := idx.Build(ctx, root); err != nil {
-		return fmt.Errorf("failed to build index: %w", err)
+	result, err := application.RunIndexStatus(ctx, application.IndexStatusRequest{
+		Root:      root,
+		IndexPath: indexPath,
+	})
+	if err != nil {
+		return err
 	}
 
 	if env.JSON() {
 		doc := map[string]any{
 			"schema_version": domain.SchemaVersion,
 			"tool_version":   Version,
-			"root":           root,
+			"root":           result.RootPath,
 			"status":         "indexed",
-			"symbols_count":  len(idx.Symbols()),
+			"files_count":    result.FileCount,
+			"symbols_count":  result.SymbolCount,
+			"deps_count":     result.DepCount,
+			"last_indexed":   result.LastIndexed,
 		}
 		return writeJSONDocument(env.Stdout, doc, "index status")
 	}
 
 	fmt.Fprintf(env.Stdout, "Index status\n")
-	fmt.Fprintf(env.Stdout, "  root: %s\n", root)
+	fmt.Fprintf(env.Stdout, "  root: %s\n", result.RootPath)
 	fmt.Fprintf(env.Stdout, "  status: ready\n")
-	fmt.Fprintf(env.Stdout, "  symbols: %d\n", len(idx.Symbols()))
+	fmt.Fprintf(env.Stdout, "  files: %d\n", result.FileCount)
+	fmt.Fprintf(env.Stdout, "  symbols: %d\n", result.SymbolCount)
+	fmt.Fprintf(env.Stdout, "  dependencies: %d\n", result.DepCount)
+	if result.LastIndexed > 0 {
+		fmt.Fprintf(env.Stdout, "  last indexed: %d\n", result.LastIndexed)
+	}
 	return nil
 }
 
@@ -147,15 +199,19 @@ func runIndexOverview(ctx context.Context, env *Env) error {
 		return err
 	}
 
-	idx := index.New()
-	if err := idx.Build(ctx, root); err != nil {
-		return fmt.Errorf("failed to build index: %w", err)
+	// For overview, we need more detailed info. Use the application layer to get symbols.
+	findResult, err := application.RunIndexFind(ctx, application.IndexFindRequest{
+		Root:      root,
+		IndexPath: indexPath,
+		Query:     "",
+	})
+	if err != nil {
+		return err
 	}
 
-	symbols := idx.Symbols()
 	byLang := make(map[string]int)
 	byKind := make(map[string]int)
-	for _, sym := range symbols {
+	for _, sym := range findResult {
 		byLang[sym.Language]++
 		byKind[sym.Kind]++
 	}
@@ -166,7 +222,7 @@ func runIndexOverview(ctx context.Context, env *Env) error {
 			"tool_version":   Version,
 			"root":           root,
 			"overview": map[string]any{
-				"total_symbols": len(symbols),
+				"total_symbols": len(findResult),
 				"by_language":   byLang,
 				"by_kind":       byKind,
 			},
@@ -176,7 +232,7 @@ func runIndexOverview(ctx context.Context, env *Env) error {
 
 	fmt.Fprintf(env.Stdout, "Index overview\n")
 	fmt.Fprintf(env.Stdout, "  root: %s\n", root)
-	fmt.Fprintf(env.Stdout, "  total symbols: %d\n", len(symbols))
+	fmt.Fprintf(env.Stdout, "  total symbols: %d\n", len(findResult))
 	fmt.Fprintf(env.Stdout, "  by language:\n")
 	for lang, count := range byLang {
 		fmt.Fprintf(env.Stdout, "    %s: %d\n", lang, count)
@@ -199,12 +255,14 @@ func runIndexFind(ctx context.Context, env *Env, query string) error {
 		return err
 	}
 
-	idx := index.New()
-	if err := idx.Build(ctx, root); err != nil {
-		return fmt.Errorf("failed to build index: %w", err)
+	results, err := application.RunIndexFind(ctx, application.IndexFindRequest{
+		Root:      root,
+		IndexPath: indexPath,
+		Query:     query,
+	})
+	if err != nil {
+		return err
 	}
-
-	results := idx.Find(query)
 
 	if env.JSON() {
 		out := make([]map[string]any, len(results))
@@ -245,14 +303,14 @@ func runIndexRefs(ctx context.Context, env *Env, symbolName string) error {
 		return err
 	}
 
-	idx := index.New()
-	if err := idx.Build(ctx, root); err != nil {
-		return fmt.Errorf("failed to build index: %w", err)
+	results, err := application.RunIndexRefs(ctx, application.IndexRefsRequest{
+		Root:      root,
+		IndexPath: indexPath,
+		Symbol:    symbolName,
+	})
+	if err != nil {
+		return err
 	}
-
-	// For now, just find the symbol; in a full implementation,
-	// this would use the reference extraction from P5-03
-	results := idx.Find(symbolName)
 
 	if env.JSON() {
 		out := make([]map[string]any, len(results))
@@ -289,16 +347,17 @@ func runIndexDeps(ctx context.Context, env *Env) error {
 		return err
 	}
 
-	idx := index.New()
-	if err := idx.Build(ctx, root); err != nil {
-		return fmt.Errorf("failed to build index: %w", err)
+	results, err := application.RunIndexDeps(ctx, application.IndexDepsRequest{
+		Root:      root,
+		IndexPath: indexPath,
+	})
+	if err != nil {
+		return err
 	}
 
-	deps := idx.Dependencies()
-
 	if env.JSON() {
-		out := make([]map[string]any, len(deps))
-		for i, dep := range deps {
+		out := make([]map[string]any, len(results))
+		for i, dep := range results {
 			out[i] = map[string]any{
 				"path":     dep.Path,
 				"file":     dep.File,
@@ -317,8 +376,8 @@ func runIndexDeps(ctx context.Context, env *Env) error {
 
 	fmt.Fprintf(env.Stdout, "Declared dependencies\n")
 	fmt.Fprintf(env.Stdout, "  root: %s\n", root)
-	fmt.Fprintf(env.Stdout, "  total: %d\n", len(deps))
-	for _, dep := range deps {
+	fmt.Fprintf(env.Stdout, "  total: %d\n", len(results))
+	for _, dep := range results {
 		fmt.Fprintf(env.Stdout, "  %s %s:%d\n", dep.Path, dep.File, dep.Line)
 	}
 	return nil
