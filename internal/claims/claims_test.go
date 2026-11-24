@@ -64,6 +64,23 @@ func TestParseReadsAValidFile(t *testing.T) {
 	}
 }
 
+func TestParseRejectsSymbolsThatNoClaimTypeEvaluates(t *testing.T) {
+	message := parseError(t, `{
+  "schema_version": "0.1",
+  "claims": [
+    { "id": "c1", "type": "scope", "paths": ["main.go"], "symbols": ["NonExistentFunction"] }
+  ]
+}
+`)
+	requireLine(t, message, 4)
+	if !strings.Contains(message, "symbols") {
+		t.Errorf("the error does not name the field: %v", message)
+	}
+	if !strings.Contains(message, "not evaluated by any claim type") {
+		t.Errorf("the error does not explain why the field is rejected: %v", message)
+	}
+}
+
 func TestParseRejectsAMissingSchemaVersion(t *testing.T) {
 	message := parseError(t, `{
   "claims": []

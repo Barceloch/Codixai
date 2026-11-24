@@ -362,17 +362,16 @@ func buildClaim(element json.RawMessage, position jsonClaimPosition) (domain.Cla
 		claim.Paths = values
 	}
 
-	if raw, ok := fields["symbols"]; ok {
-		values, err := textList(raw)
-		if err != nil {
-			return domain.Claim{}, &jsonError{line: position.keys["symbols"], message: "the field \"symbols\" must be a list of text values"}
+	if _, ok := fields["symbols"]; ok {
+		// No claim type of the catalog resolves a symbol: the field would be
+		// accepted and never evaluated, so a claim that declares it would look
+		// like it answers a question about the symbol while the result only
+		// depends on the other fields. The loader rejects it instead of
+		// producing a verdict that does not evaluate what the claim asserts.
+		return domain.Claim{}, &jsonError{
+			line:    position.keys["symbols"],
+			message: "the field \"symbols\" is not evaluated by any claim type of the catalog, so a claim that declares it would not be decided by the analysis: remove it and assert the symbol with an external test report, or split the claim",
 		}
-		for _, value := range values {
-			if strings.TrimSpace(value) == "" {
-				return domain.Claim{}, &jsonError{line: position.keys["symbols"], message: "the field \"symbols\" must not contain empty values"}
-			}
-		}
-		claim.Symbols = values
 	}
 
 	if raw, ok := fields["dependencies"]; ok {

@@ -135,14 +135,32 @@ func TestEvaluateTestsAddedIsContradictedByADeletedTestFile(t *testing.T) {
 	requireStatus(t, result, domain.ClaimContradicted)
 }
 
-func TestEvaluateTestsAddedIsUnresolvedWithoutAChangedFile(t *testing.T) {
+func TestEvaluateTestsAddedIsContradictedWhenNoChangedFileMatchesThePaths(t *testing.T) {
 	changes := change(file("internal/billing/service.go", domain.FileModified))
 	result := evaluate(t, "", changes, domain.Claim{
 		ID:    "c1",
 		Type:  domain.ClaimTypeTestsAdded,
 		Paths: []string{"internal/payment/**"},
 	}, "")
+	// The change is not empty and no file under the paths of the claim
+	// changed, so no test file of those paths was added or modified: the
+	// claim is false for the compared range, not undecidable.
+	requireStatus(t, result, domain.ClaimContradicted)
+}
+
+func TestEvaluateTestsAddedIsUnresolvedWithAnEmptyDiff(t *testing.T) {
+	changes := change()
+	result := evaluate(t, "", changes, domain.Claim{
+		ID:    "c1",
+		Type:  domain.ClaimTypeTestsAdded,
+		Paths: []string{"internal/payment/**"},
+	}, "")
+	// Without a compared range there is no evidence at all, so the claim
+	// stays undecidable.
 	requireStatus(t, result, domain.ClaimUnresolved)
+	if !strings.Contains(result.Message, "diff is empty") {
+		t.Errorf("unexpected message: %s", result.Message)
+	}
 }
 
 func TestEvaluateTestsAddedIsUnresolvedWithoutATestFile(t *testing.T) {
@@ -178,14 +196,14 @@ func TestEvaluateTestsModifiedIsContradictedByANewTestFile(t *testing.T) {
 	requireStatus(t, result, domain.ClaimContradicted)
 }
 
-func TestEvaluateTestsModifiedIsUnresolvedWithoutAChangedFile(t *testing.T) {
+func TestEvaluateTestsModifiedIsContradictedWhenNoChangedFileMatchesThePaths(t *testing.T) {
 	changes := change(file("internal/billing/service.go", domain.FileModified))
 	result := evaluate(t, "", changes, domain.Claim{
 		ID:    "c1",
 		Type:  domain.ClaimTypeTestsModified,
 		Paths: []string{"internal/payment/**"},
 	}, "")
-	requireStatus(t, result, domain.ClaimUnresolved)
+	requireStatus(t, result, domain.ClaimContradicted)
 }
 
 func TestEvaluateDependencyUnchanged(t *testing.T) {

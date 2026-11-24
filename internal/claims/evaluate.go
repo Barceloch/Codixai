@@ -167,8 +167,21 @@ func evaluateScope(changes *domain.ChangeSet, claim domain.Claim) domain.ClaimRe
 func evaluateTests(changes *domain.ChangeSet, claim domain.Claim, modifiedOnly bool) domain.ClaimResult {
 	candidates := matchingFiles(claim, changes)
 	if len(candidates) == 0 {
-		return newResult(claim, domain.ClaimUnresolved,
-			"no changed file matches the paths of the claim, so no test file can be identified", nil)
+		if len(changes.Files) == 0 {
+			return newResult(claim, domain.ClaimUnresolved,
+				"the diff is empty, so there is nothing to compare", nil)
+		}
+		// The compared range holds changes and none of them is under the
+		// paths of the claim. No test file of those paths was added or
+		// modified in the range, so the claim is false for the range. The
+		// message names the observation: the claim is decided about the
+		// compared range, not about the existence of tests in the
+		// repository.
+		message := "no changed file matches the paths of the claim, so no test file of those paths was added or modified in the compared range"
+		if modifiedOnly {
+			message = "no changed file matches the paths of the claim, so no test file of those paths was modified in the compared range"
+		}
+		return newResult(claim, domain.ClaimContradicted, message, nil)
 	}
 	testFiles := testFilesOf(candidates)
 	if len(testFiles) == 0 {

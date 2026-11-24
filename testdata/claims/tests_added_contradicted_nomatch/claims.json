@@ -1,0 +1,7 @@
+{
+  "schema_version": "0.1",
+  "base": "main",
+  "claims": [
+    { "id": "c1", "type": "tests_added", "paths": ["internal/payment/**"] }
+  ]
+}

@@ -50,6 +50,14 @@ func newVerifyCommand(env *Env) *Command {
 			"\n" +
 			"  " + strings.Join(claims.Types(), ", ") + "\n" +
 			"\n" +
+			"A claim is decided by the fields that its type evaluates: a claim that\n" +
+			"declares a field no type evaluates, such as \"symbols\", is rejected\n" +
+			"instead of being answered by a verdict that ignores what it asserts.\n" +
+			"\n" +
+			"Every claim is decided about the compared range. A test claim whose\n" +
+			"paths hold no changed file is contradicted when the range is not empty,\n" +
+			"and unresolved when the range is empty.\n" +
+			"\n" +
 			"The format of the claim file, the catalog of the types and the linking of\n" +
 			"an external test report are fixed by the decision 0007, in\n" +
 			"docs/decisions/0007-claim-format-and-report-linking.md.\n" +
