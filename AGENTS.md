@@ -21,12 +21,20 @@ Codixai. The conventions are in
 4. **Everything is deterministic.** The same input produces the same
    document. Sort whatever reaches an output.
 5. **The results are versioned, serializable documents.** Every document
-   carries `schema_version`, and the value increments when a consumer
-   visible field is added, removed or changes meaning **in a way that is
-   not backward compatible**. An additive, optional field that no published
-   consumer can observe does not increment it. The authoritative wording is
-   the doc comment of `domain.SchemaVersion`; a change of the contract is a
-   decision of the maintainer.
+   carries `schema_version`, and the value increments when the contract
+   changes in a way that is not backward compatible for existing consumers:
+
+   - Removing a field.
+   - Changing the meaning or type of an existing field.
+   - Changing the structure of an existing field in an incompatible way.
+
+   Adding optional fields, or adding fields that only appear for specific
+   analysis origins (e.g. "files" and "missing_rules" for origin: directory),
+   does NOT increment the version. Consumers MUST tolerate unknown fields and
+   MUST treat absent optional fields as unspecified.
+
+   The authoritative rule is the doc comment of `domain.SchemaVersion`; a
+   change of the contract is a decision of the maintainer.
 6. **The epistemic status is honest.** A heuristic is `inferred`, never a
    confirmed bug. The absence of findings never proves that a change is
    correct. A claim that cannot be decided is `unresolved`, never

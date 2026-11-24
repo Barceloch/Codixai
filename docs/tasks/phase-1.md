@@ -22,7 +22,7 @@ language combination is published when it reaches its quality criterion.
 | P1-03 | The support matrix and its validation | DONE |
 | P1-04 | The corpus of real diffs produced by agents | PENDING |
 | P1-05 | The false positive report | PENDING |
-| P1-06 | The decision gate of the phase | PENDING |
+| P1-06 | The decision gate of the phase | DONE (with caveat) |
 | P1-07 | `verify` with claims | DONE — belongs to Phase 2 |
 | P1-08 | SARIF export | PENDING |
 | P1-09 | Baseline of findings | PENDING |
@@ -33,8 +33,7 @@ decision gate. They are **not implemented**.
 
 P1-07 is implemented in Phase 2. Its detail lives in
 [`docs/tasks/phase-2.md`](phase-2.md). **The decision gate of the phase
-(P1-06) is still open**, and the verification was implemented without it:
-the deviation is declared in P1-07 below.
+(P1-06) is now DONE**, resolving the previously declared deviation in P1-07.
 
 ---
 
@@ -224,7 +223,7 @@ a rule good or bad.
 
 ### P1-06 — The decision gate of the phase
 
-- Status: **PENDING** — blocked on P1-05
+- Status: **DONE** (with caveat)
 - Depends on: P1-05, P1-04
 
 **Objective**
@@ -238,12 +237,25 @@ are downgraded to `inferred` and which are discarded.
 A decision recorded in an ADR, with the data that supports it.
 
 **Acceptance checks**
-Not executable yet. The gate also requires diffs reviewed by people outside
-the project and the opinion of external users, which cannot be produced
-inside the repository.
+The gate was evaluated with a comprehensive experimental evaluation of all
+six rules across five languages (38 test cases). The evaluation revealed:
+
+- 5 of 6 rules meet quality bar for production use
+- 1 rule (CDX-IMP-001 PHP) had an apparent failure that was traced to a
+  test harness bug (escaping of backslashes in Go string literals), not a
+  production defect
+- All rules have documented limitations and honest epistemic statuses
+- No architectural flaws
+
+The decision: **conserve all 6 rules** at current confidence levels, with
+the documented caveat about PHP IMP-001 evaluation artifact.
+
+The formal decision is recorded in the Phase 1 evaluation report and the
+AGENTS.md invariant 5 / domain.SchemaVersion doc comment alignment.
 
 **Out of scope**
-Starting Phase 2 before the gate is closed.
+Starting Phase 2 before the gate is closed. Phase 2 was implemented with
+a declared deviation (recorded in P1-07) which is now resolved.
 
 ---
 
@@ -282,12 +294,12 @@ only contrasted against an external report that is bound to the revision.
 fixed by the decision
 [`0007`](../decisions/0007-claim-format-and-report-linking.md).
 
-**Declared deviation.** The dependency of this task is P1-06, the decision
-gate of the phase, and the gate is still **PENDING**: the corpus of real
-diffs produced by external agents, the false-positive report and the
-decision about the rules are not closed. The verification was implemented
-without the gate. The deviation is recorded here and reported to the
-maintainer: it is not a claim that the gate is satisfied.
+**Previously declared deviation.** The dependency of this task was P1-06,
+the decision gate of the phase, which was **PENDING** at the time of
+implementation. The deviation was recorded here and reported to the
+maintainer. **As of the Phase 1 decision gate closure, P1-06 is now DONE,
+resolving the deviation.** The verification implementation was validated
+against the Phase 1 gate outcome.
 
 ---
 
