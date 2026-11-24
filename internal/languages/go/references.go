@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -307,14 +308,29 @@ func ignoredPositions(file *ast.File) map[token.Pos]bool {
 }
 
 // defaultPackageName returns the name that an import path binds by default.
+//
+// The name is the last element of the path, except when that element is the
+// major version that the semantic import versioning of Go appends after the
+// name of a module, such as the "v2" of "github.com/go-resty/resty/v2": the
+// name of that package is "resty", not "v2". Reporting the qualifier of the
+// import as a missing symbol would be a false positive on code that is
+// correct.
 func defaultPackageName(path string) string {
 	parts := strings.Split(path, "/")
+	if len(parts) > 2 && majorVersionElement.MatchString(parts[len(parts)-1]) {
+		parts = parts[:len(parts)-1]
+	}
 	name := parts[len(parts)-1]
 	if idx := strings.Index(name, "."); idx > 0 {
 		name = name[:idx]
 	}
 	return name
 }
+
+// majorVersionElement matches the path element that the semantic import
+// versioning of Go appends to a module path whose major version is two or
+// higher.
+var majorVersionElement = regexp.MustCompile(`^v[0-9]+$`)
 
 // IsBuiltin reports whether name is a predeclared Go identifier.
 func IsBuiltin(name string) bool {

@@ -1,0 +1,11 @@
+diff --git a/main.go b/main.go
+index 1111111..2222222 100644
+--- a/main.go
++++ b/main.go
+@@ -8,6 +8,7 @@ import (
+ 
+ 	"github.com/go-resty/resty/v2"
++	"github.com/unknown/lib"
+ )
+ 
+ func main() {

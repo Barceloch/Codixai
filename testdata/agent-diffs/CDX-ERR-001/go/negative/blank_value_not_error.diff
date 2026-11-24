@@ -1,0 +1,11 @@
+diff --git a/main.go b/main.go
+index 1111111..2222222 100644
+--- a/main.go
++++ b/main.go
+@@ -9,6 +9,7 @@ func count() int {
+ }
+ 
+ func main() {
++	_ = count()
+ 	fmt.Println("hello")
+ }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/barceloch/codixai/internal/domain"
@@ -81,6 +83,18 @@ func importSpecs(ctx *Context) []lexical.ImportSpec {
 // For directory analysis (Status == FileAdded), all imports are reported
 // because every line is considered part of the analysis.
 func goImportSpecs(ctx *Context) []lexical.ImportSpec {
+	// The extraction from the hunks is authoritative for the lines of the
+	// change. The extraction from the file on disk covers the case that the
+	// hunk cannot see: an import that the change adds inside a block whose
+	// opening line is outside the hunk, which the textual scan cannot
+	// recognize as a block. Both sources are merged, so the behavior of the
+	// cases that the hunk already covers does not change.
+	return mergeImportSpecs(goImportSpecsFromHunks(ctx), goImportSpecsFromDisk(ctx))
+}
+
+// goImportSpecsFromHunks returns the imports that the hunks of the change
+// declare.
+func goImportSpecsFromHunks(ctx *Context) []lexical.ImportSpec {
 	// Use textual extraction on all new side lines (context + added) with
 	// code segments to filter out strings and comments. Inside import
 	// blocks, string segments are also scanned because import paths
@@ -101,6 +115,75 @@ func goImportSpecs(ctx *Context) []lexical.ImportSpec {
 		}
 	}
 	return addedSpecs
+}
+
+// goImportSpecsFromDisk returns the imports that the file on disk declares on
+// a line that the change adds.
+//
+// The hunk of a diff may start below the line that opens an import block, so
+// the textual extraction of the hunks cannot tell that the following lines are
+// imports and it silently misses them. The file on disk carries the whole
+// block, so the imports are read with the Go parser.
+//
+// The file on disk may belong to another revision than the one under analysis
+// when the working tree is dirty. The import is accepted only when the line
+// that the change adds is the same line that declares it on disk, so a
+// different content can never invent an import.
+func goImportSpecsFromDisk(ctx *Context) []lexical.ImportSpec {
+	if ctx.Root == "" || ctx.View.Path == "" {
+		return nil
+	}
+	if ctx.View.Status == domain.FileDeleted {
+		return nil
+	}
+	source, ok := goSource(ctx)
+	if !ok {
+		return nil
+	}
+	specs, err := golang.ImportSpecs(source)
+	if err != nil {
+		return nil
+	}
+	addedText := make(map[int]string, len(ctx.View.Added))
+	for _, line := range ctx.View.Added {
+		addedText[line.Number] = line.Text
+	}
+	var kept []lexical.ImportSpec
+	for _, spec := range specs {
+		text, ok := addedText[spec.Line]
+		if !ok {
+			continue
+		}
+		if !strings.Contains(text, strconv.Quote(spec.Module)) {
+			continue
+		}
+		kept = append(kept, spec)
+	}
+	return kept
+}
+
+// mergeImportSpecs merges import lists, dropping the duplicates of a module
+// declared on the same line.
+func mergeImportSpecs(lists ...[]lexical.ImportSpec) []lexical.ImportSpec {
+	seen := make(map[string]bool)
+	var merged []lexical.ImportSpec
+	for _, list := range lists {
+		for _, spec := range list {
+			key := spec.Module + ":" + strconv.Itoa(spec.Line)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			merged = append(merged, spec)
+		}
+	}
+	sort.SliceStable(merged, func(i, j int) bool {
+		if merged[i].Line != merged[j].Line {
+			return merged[i].Line < merged[j].Line
+		}
+		return merged[i].Module < merged[j].Module
+	})
+	return merged
 }
 
 // goSourceFile reads and parses the changed Go file of the repository.

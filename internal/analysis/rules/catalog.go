@@ -36,12 +36,32 @@ const (
 // consumer can tell the two behaviors apart.
 const RuleVersion = "1"
 
+// RuleVersionImports is the version of CDX-IMP-001.
+//
+// Version 2 also reports an import that the change adds inside a block whose
+// opening line is outside the hunk: the imports are read from the file on disk
+// and accepted only when the line that the change adds is the line that
+// declares them, so an import of a dirty working tree is never invented.
+const RuleVersionImports = "2"
+
+// RuleVersionErrors is the version of CDX-ERR-001.
+//
+// Version 2 reports the discarded result of a function that the package
+// directory declares with an error result, in addition to the lexical marker
+// that recognizes a name that looks like an error.
+const RuleVersionErrors = "2"
+
 // RuleVersionReferences is the version of CDX-REF-001.
 //
 // Version 2 resolves the predeclared identifiers of the language and the
 // name of the packages of the module, so a reference to one of them is no
 // longer reported as a missing symbol.
-const RuleVersionReferences = "2"
+//
+// Version 3 resolves the name that an external import binds when its path
+// ends in a major version element, such as the "resty" of
+// "github.com/go-resty/resty/v2", so the qualifier of that package is no
+// longer reported as a missing symbol.
+const RuleVersionReferences = "3"
 
 // RuleVersionPlaceholders is the version of CDX-PLH-001.
 //
@@ -84,7 +104,7 @@ func (d Definition) Supports(language string) bool {
 var catalog = []Definition{
 	{
 		ID:           IDImports,
-		Version:      RuleVersion,
+		Version:      RuleVersionImports,
 		Area:         "IMP",
 		Description:  "An import added by the change refers to a dependency that is not declared in the manifests of the repository and does not belong to the standard library of the language.",
 		Severity:     domain.SeverityError,
@@ -101,6 +121,7 @@ var catalog = []Definition{
 			domain.LangGo: {
 				"Only the go.mod file of the repository root is read; the workspace modules and the vendored dependencies are not resolved.",
 				"Only the import declarations that the change adds are checked.",
+				"An import of a block whose opening line is outside the hunk is read from the file on disk, and it is reported only when the line that the change adds is the line that declares it: when the working tree differs from the analyzed revision, the import is not reported.",
 			},
 			domain.LangPython: {
 				"requirements.txt and pyproject.toml are read with a reduced parser; unusual TOML layouts are ignored.",
@@ -223,7 +244,7 @@ var catalog = []Definition{
 	},
 	{
 		ID:           IDErrors,
-		Version:      RuleVersion,
+		Version:      RuleVersionErrors,
 		Area:         "ERR",
 		Description:  "The change adds a pattern that discards an error or an empty handler.",
 		Severity:     domain.SeverityWarning,
@@ -240,6 +261,7 @@ var catalog = []Definition{
 			domain.LangGo: {
 				"An empty error check is only reported when the closing brace is visible in the changed lines.",
 				"A swallowed error is not necessarily a defect; the finding is a signal to review the intent of the change.",
+				"A result discarded in the blank identifier is only reported when the called function is declared in the package directory with an error result: a call to a function of another package, or to a method, is not decided because the analysis has no type information for it.",
 			},
 			domain.LangPython: {
 				"An empty handler is only reported when its body is visible in the changed lines.",
