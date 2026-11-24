@@ -69,6 +69,7 @@ func NewRootCommand(env *Env) *Command {
 	root.AddCommand(newInitCommand(env))
 	root.AddCommand(newIndexCommand(env))
 	root.AddCommand(newImpactCommand(env))
+	root.AddCommand(newMeasureCommand(env))
 	root.AddCommand(newUICommand(env))
 	root.AddCommand(newVersionCommand(env))
 	root.AddCommand(newHelpCommand(root))
