@@ -39,6 +39,7 @@ func New(version string) *server.MCPServer {
 		mcp.WithString("base", mcp.Description("Base revision for base comparison")),
 		mcp.WithBoolean("staged", mcp.Description("Audit staged changes")),
 		mcp.WithBoolean("worktree", mcp.Description("Audit changes that are not committed yet")),
+		mcp.WithBoolean("include_rules", mcp.Description("Include the catalog of rules in the document (default: true). Set it to false to keep the context small when you do not need the catalog: it is the same for every call of a build.")),
 		mcp.WithReadOnlyHintAnnotation(readOnly),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(once),
@@ -48,6 +49,7 @@ func New(version string) *server.MCPServer {
 	s.AddTool(mcp.NewTool("audit_directory",
 		mcp.WithDescription("Run a Codixai audit over a directory without requiring a Git repository."),
 		mcp.WithString("root", mcp.Required(), mcp.Description("Absolute path to the directory root")),
+		mcp.WithBoolean("include_rules", mcp.Description("Include the catalog of rules in the document (default: true). Set it to false to keep the context small when you do not need the catalog: it is the same for every call of a build.")),
 		mcp.WithReadOnlyHintAnnotation(readOnly),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(once),
@@ -73,6 +75,7 @@ func New(version string) *server.MCPServer {
 		mcp.WithBoolean("staged", mcp.Description("Audit staged changes")),
 		mcp.WithBoolean("worktree", mcp.Description("Audit working tree changes")),
 		mcp.WithString("directory", mcp.Description("Analyze a directory without requiring a Git repository")),
+		mcp.WithBoolean("include_rules", mcp.Description("Include the catalog of rules in the JSON document (default: true); the SARIF document always carries its rule descriptors")),
 		mcp.WithReadOnlyHintAnnotation(readOnly),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(once),
@@ -124,6 +127,13 @@ func handleAuditDiff(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 	if err != nil {
 		return nil, err
 	}
+	withRules, err := includeRules(args)
+	if err != nil {
+		return nil, err
+	}
+	if !withRules {
+		result.Run.Rules = nil
+	}
 	document, err := json.Marshal(result.Run)
 	if err != nil {
 		return nil, err
@@ -147,6 +157,13 @@ func handleAuditDirectory(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	})
 	if err != nil {
 		return nil, err
+	}
+	withRules, err := includeRules(args)
+	if err != nil {
+		return nil, err
+	}
+	if !withRules {
+		result.Run.Rules = nil
 	}
 	document, err := json.Marshal(result.Run)
 	if err != nil {
@@ -249,6 +266,10 @@ func handleReport(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 	if selected > 1 {
 		return nil, fmt.Errorf("several origins selected: use only one of base, staged, worktree or directory")
 	}
+	withRules, err := includeRules(args)
+	if err != nil {
+		return nil, err
+	}
 
 	var document []byte
 	var failed bool
@@ -264,6 +285,9 @@ func handleReport(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		if format == "sarif" {
 			document, err = json.Marshal(report.SARIFDirectory(result.Run, report.SARIFOptions{ToolVersion: toolVersion}))
 		} else {
+			if !withRules {
+				result.Run.Rules = nil
+			}
 			document, err = json.Marshal(result.Run)
 		}
 		if err != nil {
@@ -296,6 +320,9 @@ func handleReport(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 		if format == "sarif" {
 			document, err = json.Marshal(report.SARIF(result, report.SARIFOptions{ToolVersion: toolVersion}))
 		} else {
+			if !withRules {
+				result.Run.Rules = nil
+			}
 			document, err = json.Marshal(result.Run)
 		}
 		if err != nil {
@@ -388,6 +415,24 @@ func handleBaselineCreate(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 		return nil, err
 	}
 	return jsonResult(string(encoded), false), nil
+}
+
+// includeRules reads the optional include_rules argument.
+//
+// The catalog of rules is part of the audit document and it is included by
+// default, so a caller that reads the document as before sees no change. The
+// catalog is static for a build: a caller that does not need it asks for the
+// compact document and keeps the context of the conversation small.
+func includeRules(args map[string]any) (bool, error) {
+	value, ok := args["include_rules"]
+	if !ok {
+		return true, nil
+	}
+	flag, ok := value.(bool)
+	if !ok {
+		return false, fmt.Errorf("include_rules must be a boolean")
+	}
+	return flag, nil
 }
 
 // toolArgs reads the arguments of a tool call.

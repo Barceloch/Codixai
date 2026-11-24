@@ -41,10 +41,10 @@ type toolContract struct {
 // toolContracts is derived from the registration code in New. There are five
 // tools: four read-only and one that legitimately writes a baseline.
 var toolContracts = []toolContract{
-	{Name: "audit_diff", Required: []string{"root"}, Properties: []string{"base", "root", "staged", "worktree"}, ReadOnly: true, Idempotent: true},
-	{Name: "audit_directory", Required: []string{"root"}, Properties: []string{"root"}, ReadOnly: true, Idempotent: true},
+	{Name: "audit_diff", Required: []string{"root"}, Properties: []string{"base", "include_rules", "root", "staged", "worktree"}, ReadOnly: true, Idempotent: true},
+	{Name: "audit_directory", Required: []string{"root"}, Properties: []string{"include_rules", "root"}, ReadOnly: true, Idempotent: true},
 	{Name: "verify_claims", Required: []string{"base", "claims_path", "root"}, Properties: []string{"base", "claims_path", "root"}, ReadOnly: true, Idempotent: true},
-	{Name: "report", Required: []string{"root"}, Properties: []string{"base", "directory", "format", "root", "staged", "worktree"}, ReadOnly: true, Idempotent: true},
+	{Name: "report", Required: []string{"root"}, Properties: []string{"base", "directory", "format", "include_rules", "root", "staged", "worktree"}, ReadOnly: true, Idempotent: true},
 	{Name: "baseline_create", Required: []string{"root"}, Properties: []string{"base", "force", "out", "root", "staged", "worktree"}, ReadOnly: false, Idempotent: false},
 }
 
@@ -873,5 +873,65 @@ func TestToolResultSerialization(t *testing.T) {
 	}
 	if _, ok := wire["isError"]; ok {
 		t.Fatal("isError must be omitted on a successful call")
+	}
+}
+
+// TestIncludeRulesControlsTheCatalog checks that the catalog of rules is part
+// of the document by default and that a caller can ask for the compact
+// document without losing the findings, the summary or the limitations.
+func TestIncludeRulesControlsTheCatalog(t *testing.T) {
+	root := newProject(t)
+
+	withCatalog := document(t, mustCall(t, newTestServer(t), "audit_directory", map[string]any{"root": root}))
+	if _, ok := withCatalog["rules"]; !ok {
+		t.Fatal("the default document does not carry the catalog of rules")
+	}
+
+	compact := document(t, mustCall(t, newTestServer(t), "audit_directory",
+		map[string]any{"root": root, "include_rules": false}))
+	if _, ok := compact["rules"]; ok {
+		t.Fatal("the compact document carries the catalog of rules")
+	}
+	for _, key := range []string{"findings", "summary", "files", "limitations"} {
+		if _, ok := compact[key]; !ok {
+			t.Fatalf("the compact document is missing %s", key)
+		}
+	}
+	if len(compact) >= len(withCatalog) {
+		t.Fatalf("the compact document is not smaller: %d keys against %d", len(compact), len(withCatalog))
+	}
+}
+
+// TestIncludeRulesRejectsAWrongType checks that a value that is not a boolean
+// is rejected instead of silently keeping the default.
+func TestIncludeRulesRejectsAWrongType(t *testing.T) {
+	root := newProject(t)
+	_, failure := callTool(t, newTestServer(t), "audit_directory",
+		map[string]any{"root": root, "include_rules": "no"})
+	if failure == nil {
+		t.Fatal("a wrong type of include_rules was accepted")
+	}
+	if !strings.Contains(failure.Error.Message, "include_rules") {
+		t.Fatalf("the error does not name the argument: %s", failure.Error.Message)
+	}
+}
+
+// TestReportIncludeRulesAppliesToTheJSONDocumentOnly checks that the SARIF
+// document keeps its rule descriptors whatever the caller asks, because they
+// are part of the SARIF contract and not of the audit document.
+func TestReportIncludeRulesAppliesToTheJSONDocumentOnly(t *testing.T) {
+	root := newProject(t)
+
+	jsonDocument := document(t, mustCall(t, newTestServer(t), "report",
+		map[string]any{"root": root, "directory": root, "format": "json", "include_rules": false}))
+	if _, ok := jsonDocument["rules"]; ok {
+		t.Fatal("the compact JSON document carries the catalog of rules")
+	}
+
+	result := mustCall(t, newTestServer(t), "report",
+		map[string]any{"root": root, "directory": root, "format": "sarif", "include_rules": false})
+	sarif := document(t, result)
+	if _, ok := sarif["runs"]; !ok {
+		t.Fatalf("the SARIF document is malformed: %v", sarif)
 	}
 }
