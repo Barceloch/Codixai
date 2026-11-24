@@ -227,6 +227,10 @@ type sarifRegion struct {
 	StartLine int `json:"startLine"`
 	// EndLine is the last line of the range.
 	EndLine int `json:"endLine"`
+	// StartColumn is the first column of the range (optional).
+	StartColumn int `json:"startColumn,omitempty"`
+	// EndColumn is the last column of the range (optional).
+	EndColumn int `json:"endColumn,omitempty"`
 }
 
 // sarifPartialFingerprints is the stable identity of a result.
@@ -574,7 +578,14 @@ func regionOf(location domain.Location) *sarifRegion {
 	if end < location.StartLine {
 		end = location.StartLine
 	}
-	return &sarifRegion{StartLine: location.StartLine, EndLine: end}
+	region := &sarifRegion{StartLine: location.StartLine, EndLine: end}
+	if location.StartColumn > 0 {
+		region.StartColumn = location.StartColumn
+	}
+	if location.EndColumn > 0 {
+		region.EndColumn = location.EndColumn
+	}
+	return region
 }
 
 // SARIFDirectory builds the SARIF 2.1.0 document of a directory analysis.

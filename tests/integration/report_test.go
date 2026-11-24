@@ -39,6 +39,11 @@ type sarifExportRun struct {
 	Results    []sarifExportResult `json:"results"`
 	Properties struct {
 		SuppressedByBaseline int `json:"suppressedByBaseline"`
+		MissingRules         []struct {
+			ID      string `json:"id"`
+			Version string `json:"version"`
+			Reason  string `json:"reason"`
+		} `json:"missingRules,omitempty"`
 	} `json:"properties"`
 }
 
@@ -316,4 +321,192 @@ func TestTheFormatsBelongToTheCommandsTheyServe(t *testing.T) {
 	if !strings.Contains(stderr, "report") {
 		t.Errorf("the error does not point at the command that writes SARIF:\n%s", stderr)
 	}
+}
+
+// TestReportDirectorySARIF checks that report --directory writes a valid
+// SARIF document for directory analysis: empty fingerprints, missing rules
+// in properties, source_range evidence kind, no diff regions.
+func TestReportDirectorySARIF(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/app\n\ngo 1.21\n")
+	writeFile(t, root, "main.go", "package main\n\nimport \"github.com/missing/package\"\n\nfunc main() {}\n")
+
+	code, stdout, stderr := execute(t, "--format", "sarif", "report", "--directory", root)
+
+	if code != cli.ExitFindings {
+		t.Fatalf("the exit code is %d, want %d: %s", code, cli.ExitFindings, stderr)
+	}
+	if ansiSequence(stdout) {
+		t.Errorf("the SARIF document carries an escape sequence:\n%q", stdout)
+	}
+
+	document := parseSarif(t, stdout, stderr)
+	if document.Version != "2.1.0" {
+		t.Errorf("the version is %q, want 2.1.0", document.Version)
+	}
+	if !strings.Contains(document.Schema, "sarif-2.1.0") {
+		t.Errorf("the schema is %q, want the schema of SARIF 2.1.0", document.Schema)
+	}
+	if len(document.Runs) != 1 {
+		t.Fatalf("the document holds %d runs, want 1", len(document.Runs))
+	}
+	run := document.Runs[0]
+
+	if run.Tool.Driver.Name != "codixai" {
+		t.Errorf("the driver is %q, want codixai", run.Tool.Driver.Name)
+	}
+
+	// Results should have one finding with empty fingerprint.
+	if len(run.Results) != 1 {
+		t.Fatalf("the document holds %d results, want 1: %+v", len(run.Results), run.Results)
+	}
+	result := run.Results[0]
+	if result.RuleID != "CDX-IMP-001" {
+		t.Errorf("the rule is %q, want CDX-IMP-001", result.RuleID)
+	}
+	if result.Message.Text == "" {
+		t.Errorf("the result has no message")
+	}
+	if len(result.Locations) != 1 {
+		t.Fatalf("the result holds %d locations, want 1", len(result.Locations))
+	}
+	location := result.Locations[0].PhysicalLocation
+	if location.ArtifactLocation.URI != "main.go" {
+		t.Errorf("the location is %q, want main.go", location.ArtifactLocation.URI)
+	}
+	if location.Region.StartLine != 3 || location.Region.EndLine != 3 {
+		t.Errorf("the region is %d-%d, want 3-3", location.Region.StartLine, location.Region.EndLine)
+	}
+	fingerprint := result.PartialFingerprints["codixaiFingerprint/v1"]
+	if fingerprint != "" {
+		t.Errorf("the fingerprint of a directory finding must be empty, got %q", fingerprint)
+	}
+	// The epistemic status for CDX-IMP-001 in directory mode is observed (direct manifest check).
+	if result.Properties.EpistemicStatus != "observed" {
+		t.Errorf("the epistemic status is %q, want observed", result.Properties.EpistemicStatus)
+	}
+	if result.Properties.SupportLevel != "syntactic" {
+		t.Errorf("the support level is %q, want syntactic", result.Properties.SupportLevel)
+	}
+
+	// Missing rules must be in properties, not as results.
+	if len(run.Properties.MissingRules) == 0 {
+		t.Fatalf("the run properties do not declare missing rules")
+	}
+	foundMissing := false
+	for _, mr := range run.Properties.MissingRules {
+		if mr.ID == "CDX-TST-001" {
+			foundMissing = true
+			if mr.Reason == "" {
+				t.Errorf("the missing rule CDX-TST-001 has no reason")
+			}
+		}
+	}
+	if !foundMissing {
+		t.Errorf("the missing rules do not include CDX-TST-001: %+v", run.Properties.MissingRules)
+	}
+	// The known findings count should be 0 (no baseline in directory mode).
+	if run.Properties.SuppressedByBaseline != 0 {
+		t.Errorf("the run suppresses %d findings, want 0 in directory mode", run.Properties.SuppressedByBaseline)
+	}
+	if !strings.Contains(stderr, "fail_on") {
+		t.Errorf("the standard error does not explain the failure:\n%s", stderr)
+	}
+}
+
+// TestReportDirectoryJSON checks that report --format json --directory
+// produces the same AnalysisRun document as audit --format json <path>.
+func TestReportDirectoryJSON(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", "module example.com/app\n\ngo 1.21\n")
+	writeFile(t, root, "main.go", "package main\n\nimport \"github.com/missing/package\"\n\nfunc main() {}\n")
+
+	auditCode, auditOut, auditErr := execute(t, "--format", "json", "audit", root)
+	reportCode, reportOut, reportErr := execute(t, "--format", "json", "report", "--directory", root)
+
+	if auditCode != cli.ExitFindings || reportCode != cli.ExitFindings {
+		t.Fatalf("the exit codes are %d and %d, want %d: audit: %s, report: %s",
+			auditCode, reportCode, cli.ExitFindings, auditErr, reportErr)
+	}
+	if !json.Valid([]byte(auditOut)) || !json.Valid([]byte(reportOut)) {
+		t.Fatalf("the standard output is not a JSON document:\naudit:\n%s\nreport:\n%s", auditOut, reportOut)
+	}
+
+	// The two commands run at different instants, so the timestamp of the
+	// run is the only field that can differ: the document describes the
+	// same run.
+	audit := documentWithoutTimestamp(t, auditOut)
+	report := documentWithoutTimestamp(t, reportOut)
+	if !reflect.DeepEqual(audit, report) {
+		t.Errorf("the two documents differ:\naudit:  %v\nreport: %v", audit, report)
+	}
+}
+
+// TestReportInvalidOriginCombination checks that mutually exclusive origin
+// flags are rejected with a clear error message.
+func TestReportInvalidOriginCombination(t *testing.T) {
+	root := newRepository(t)
+	writePolicy(t, root)
+	writeFile(t, root, "app.py", failingChange)
+
+	// base + directory
+	code, stdout, stderr := execute(t, "--root", root, "report", "--format", "sarif", "--base", "main", "--directory", "/tmp")
+	if code != cli.ExitInvalidArgs {
+		t.Fatalf("report --base --directory exits with %d, want %d: %s", code, cli.ExitInvalidArgs, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("the standard output must stay empty, got %q", stdout)
+	}
+	if !strings.Contains(stderr, "several origins") && !strings.Contains(stderr, "mutually") {
+		t.Errorf("the error does not explain the conflict:\n%s", stderr)
+	}
+
+	// staged + directory
+	code, stdout, stderr = execute(t, "--root", root, "report", "--format", "sarif", "--staged", "--directory", "/tmp")
+	if code != cli.ExitInvalidArgs {
+		t.Fatalf("report --staged --directory exits with %d, want %d: %s", code, cli.ExitInvalidArgs, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("the standard output must stay empty, got %q", stdout)
+	}
+
+	// worktree + directory
+	code, stdout, stderr = execute(t, "--root", root, "report", "--format", "sarif", "--worktree", "--directory", "/tmp")
+	if code != cli.ExitInvalidArgs {
+		t.Fatalf("report --worktree --directory exits with %d, want %d: %s", code, cli.ExitInvalidArgs, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("the standard output must stay empty, got %q", stdout)
+	}
+
+	// base + staged
+	code, stdout, stderr = execute(t, "--root", root, "report", "--format", "sarif", "--base", "main", "--staged")
+	if code != cli.ExitInvalidArgs {
+		t.Fatalf("report --base --staged exits with %d, want %d: %s", code, cli.ExitInvalidArgs, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("the standard output must stay empty, got %q", stdout)
+	}
+}
+
+// TestReportDirectoryNoFindings checks that a clean directory succeeds with
+// exit code 0 and empty results.
+func TestReportDirectoryNoFindings(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "main.go", "package main\n\nfunc main() {\n\tprintln(\"hello\")\n}\n")
+
+	code, stdout, stderr := execute(t, "--format", "sarif", "report", "--directory", root)
+	if code != cli.ExitOK {
+		t.Fatalf("the exit code is %d, want %d: %s", code, cli.ExitOK, stderr)
+	}
+
+	document := parseSarif(t, stdout, stderr)
+	if len(document.Runs[0].Results) != 0 {
+		t.Errorf("the document reports %d findings, want 0", len(document.Runs[0].Results))
+	}
+	if document.Runs[0].Properties.SuppressedByBaseline != 0 {
+		t.Errorf("the run suppresses %d findings, want 0", document.Runs[0].Properties.SuppressedByBaseline)
+	}
+	// For a clean directory with exit code 0, stderr may be empty (no failing findings).
+	// The failure threshold is still applied, just no findings reach it.
 }

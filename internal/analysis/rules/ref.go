@@ -49,7 +49,7 @@ func checkReferences(ctx *Context) ([]domain.Finding, error) {
 		}
 		message := fmt.Sprintf("The symbol %q is referenced but it is not declared in the package directory.", reference.Name)
 		recommendation := "Declare the symbol in the package or fix the name of the reference."
-		findings = append(findings, ctx.finding(ctx.Definition, domain.EpistemicInferred, message, reference.Line, recommendation))
+		findings = append(findings, ctx.findingWithColumn(ctx.Definition, domain.EpistemicInferred, message, reference.Line, reference.Column, reference.Column, recommendation))
 	}
 	return findings, nil
 }
